@@ -3,9 +3,9 @@ Realtime datastore for software.
 
 # What's New
 
-### **Latest**: 2.4.2 :tada:
-- ADDED: mongo project to filter returned results for the search endpoint (#13)
-- FIX: Convert id -> _id when building query if id doesn't exist within the schema
+### **Latest**: 2.4.3 :tada:
+- FIX: early out if the id can not be converted to objectId (#14)
+- FIX: convert $in query ids to ObjectId (#15)
 
 *See changelog.md for version history*
 
