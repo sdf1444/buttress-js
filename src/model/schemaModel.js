@@ -165,7 +165,7 @@ class SchemaModel {
 						if ((propSchema.__type === 'id' || propSchema.__itemtype === 'id') && typeof operand === 'string') {
 							operand = new ObjectId(operand);
 						}
-						if (propSchema.__type === 'id' && Array.isArray(operand)) {
+						if ((propSchema.__type === 'id' || propSchema.__itemtype === 'id') && Array.isArray(operand)) {
 							operand = operand.map((o) => new ObjectId(o));
 						}
 					}
@@ -378,7 +378,7 @@ class SchemaModel {
 		// Logging.logSilly(`Schema:findById: ${this.collectionName} ${id}`);
 
 		return new Promise((resolve) => {
-			this.collection.findOne({_id: new ObjectId(id)}, {}, (err, doc) => {
+			this.collection.findOne({_id: id}, {}, (err, doc) => {
 				if (err) throw err;
 				resolve(doc);
 			});
