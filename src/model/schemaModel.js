@@ -377,6 +377,10 @@ class SchemaModel {
 	findById(id) {
 		// Logging.logSilly(`Schema:findById: ${this.collectionName} ${id}`);
 
+		if (id instanceof ObjectId === false) {
+			id = new ObjectId(id);
+		}
+
 		return new Promise((resolve) => {
 			this.collection.findOne({_id: id}, {}, (err, doc) => {
 				if (err) throw err;
