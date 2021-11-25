@@ -18,9 +18,6 @@ const Config = require('node-env-obj')({
 const Bootstrap = require('../src/bootstrap');
 const Logging = require('../src/logging');
 
-console.log(Config);
-process.exit(1);
-
 /**
  *
  */
