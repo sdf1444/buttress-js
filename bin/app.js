@@ -10,9 +10,16 @@
  *
  */
 
-const Bootstrap = require('./bootstrap');
-const Config = require('node-env-obj')('../');
-const Logging = require('./logging');
+const Config = require('node-env-obj')({
+	envPath: '../',
+	configPath: '../src',
+});
+
+const Bootstrap = require('../src/bootstrap');
+const Logging = require('../src/logging');
+
+console.log(Config);
+process.exit(1);
 
 /**
  *

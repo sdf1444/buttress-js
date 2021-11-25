@@ -11,7 +11,7 @@
  */
 
 const Stream = require('stream');
-const Config = require('node-env-obj')('../');
+const Config = require('node-env-obj')();
 const Logging = require('../logging');
 // const Schema = require('../schema');
 const Model = require('../model');

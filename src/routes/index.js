@@ -19,7 +19,7 @@ const Schema = require('../schema');
 const Helpers = require('../helpers');
 const Model = require('../model');
 const Mongo = require('mongodb');
-const Config = require('node-env-obj')('../');
+const Config = require('node-env-obj')();
 
 const SchemaRoutes = require('./schemaRoutes');
 

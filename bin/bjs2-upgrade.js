@@ -15,9 +15,12 @@ const program = require('commander');
 const MongoClient = require('mongodb').MongoClient;
 // const ObjectId = require('mongodb').ObjectId;
 
-const Config = require('node-env-obj')('../');
-const Logging = require('../logging');
-const Schema = require('../schema');
+const Config = require('node-env-obj')({
+	envPath: '../',
+	configPath: '../src',
+});
+const Logging = require('../src/logging');
+const Schema = require('../src/schema');
 
 Logging.init('bjs2-upgrade');
 

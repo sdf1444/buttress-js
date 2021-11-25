@@ -15,7 +15,7 @@
 
 const cluster = require('cluster');
 const winston = require('winston');
-const Config = require('node-env-obj')('../');
+const Config = require('node-env-obj')();
 
 /**
  *

@@ -18,7 +18,7 @@ const {createClient} = require('redis');
 const redisAdapter = require('@socket.io/redis-adapter');
 const {Emitter} = require('@socket.io/redis-emitter');
 
-const Config = require('node-env-obj')('../');
+const Config = require('node-env-obj')();
 const Model = require('./model');
 const Logging = require('./logging');
 const MongoClient = require('mongodb').MongoClient;

@@ -18,7 +18,7 @@ const ObjectId = require('mongodb').ObjectId;
 const Model = require('../');
 const Schema = require('../../schema');
 const Logging = require('../../logging');
-const Config = require('node-env-obj')('../');
+const Config = require('node-env-obj')();
 const NRP = require('node-redis-pubsub');
 const nrp = new NRP(Config.redis);
 
