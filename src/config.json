@@ -40,11 +40,8 @@
 		"mongoDb": {
 			"url": "%BUTTRESS_MONGO_URL%",
 			"options": {
-				"native_parser": true,
-				"useNewUrlParser": true,
-				"poolSize": 10,
-				"bufferMaxEntries": 0,
-				"useUnifiedTopology": true
+				"appName": "%BUTTRESS_APP_CODE%",
+				"maxPoolSize": 100
 			}
 		},
 		"redis": {
