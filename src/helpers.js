@@ -12,7 +12,7 @@
 
 const stream = require('stream');
 const Transform = stream.Transform;
-const ObjectId = require('mongodb').ObjectId;
+const {ObjectId, AbstractCursor, FindCursor, AggregationCursor, ListCollectionsCursor} = require('mongodb');
 
 class RequestError extends Error {
 	constructor(code, message) {
@@ -262,3 +262,11 @@ const __getFlattenedSchema = (schema) => {
 	return flattened;
 };
 module.exports.getFlattenedSchema = __getFlattenedSchema;
+
+const isCursor = (r) => (
+	r instanceof AbstractCursor ||
+	r instanceof FindCursor ||
+	r instanceof AggregationCursor ||
+	r instanceof ListCollectionsCursor
+);
+module.exports.isCursor = isCursor;

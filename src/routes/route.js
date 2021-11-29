@@ -148,7 +148,7 @@ class Route {
 	 */
 	_respond(req, res, result) {
 		req.timings.respond = req.timer.interval;
-		const isCursor = result instanceof Mongo.Cursor;
+		const isCursor = Helpers.isCursor(result);
 		Logging.logTimer(`_respond:start cursor:${isCursor}`, req.timer, Logging.Constants.LogLevel.DEBUG, req.id);
 
 		// Fetch app roles if they exist
