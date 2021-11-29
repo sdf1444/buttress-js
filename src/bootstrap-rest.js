@@ -15,6 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const cluster = require('cluster');
 const express = require('express');
+const cors = require('cors');
 const methodOverride = require('method-override');
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
@@ -94,6 +95,10 @@ class BootstrapRest {
 		app.use(bodyParser.json({limit: '20mb'}));
 		app.use(bodyParser.urlencoded({extended: true}));
 		app.use(methodOverride());
+		app.use(cors({
+			origin: true,
+			credentials: true,
+		}));
 		app.use(express.static(`${Config.paths.appData}/public`));
 
 		process.on('unhandledRejection', (error) => {
