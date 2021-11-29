@@ -135,16 +135,18 @@ class BootstrapSocket {
 	__initWorker() {
 		const app = new Express();
 		const server = app.listen(0, 'localhost');
-		const io = sio({
+		const io = sio(server, {
 			// Allow connections from sio 2 clients
 			// https://socket.io/docs/v3/migrating-from-2-x-to-3-0/#How-to-upgrade-an-existing-production-deployment
 			allowEIO3: true,
+			// https://expressjs.com/en/resources/middleware/cors.html#configuration-options
+			// set origin to true to reflect the request origin, as defined by req.header('Origin'), or set it to false to disable CORS.
+			cors: {
+				origin: true,
+				credentials: true,
+			},
 		});
 		const namespace = [];
-		// Disabled due to usuage of wildcard, v3 now has CORS disabled by default
-		// https://socket.io/docs/v3/migrating-from-2-x-to-3-0/index.html#CORS-handling
-		// io.origins('*:*');
-		io.attach(server);
 
 		// As of v7, the library will no longer create Redis clients on behalf of the user.
 		const redisClient = createClient(Config.redis);
