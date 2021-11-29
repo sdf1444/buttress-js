@@ -62,10 +62,7 @@ module.exports.add = (collection, __add) => {
 							return;
 						}
 
-						collection.find({_id: {$in: insertedIds}}, {}, (err, doc) => {
-							if (err) throw err;
-							resolve(doc);
-						});
+						resolve(collection.find({_id: {$in: insertedIds}}));
 					});
 				});
 			});

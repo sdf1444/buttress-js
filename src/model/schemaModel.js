@@ -381,12 +381,13 @@ class SchemaModel {
 			id = new ObjectId(id);
 		}
 
-		return new Promise((resolve) => {
-			this.collection.findOne({_id: id}, {}, (err, doc) => {
-				if (err) throw err;
-				resolve(doc);
-			});
-		});
+		return this.collection.findOne({_id: id}, {});
+		// return new Promise((resolve) => {
+		// 	this.collection.findOne({_id: id}, {}, (err, doc) => {
+		// 		if (err) throw err;
+		// 		resolve(doc);
+		// 	});
+		// });
 	}
 
 	/**
