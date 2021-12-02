@@ -97,6 +97,7 @@ class BootstrapRest {
 		app.use(methodOverride());
 		app.use(cors({
 			origin: true,
+			methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,SEARCH',
 			credentials: true,
 		}));
 		app.use(express.static(`${Config.paths.appData}/public`));
