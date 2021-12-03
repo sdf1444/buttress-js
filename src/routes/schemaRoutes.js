@@ -527,11 +527,21 @@ class UpdateMany extends Route {
 		}
 
 		// Reduce down duplicate entity updates into one object
-		return req.body.reduce((reducedUpdates, update) => {
-			retunr 
+		const data = req.body.reduce((reducedUpdates, update) => {
+			const existing = reducedUpdates.find((u) => u.id === update.id);
+
+			if (!existing) {
+				reducedUpdates.push(update);
+			} else {
+				if (!Array.isArray(existing.body)) existing.body = [existing.body];
+				if (!Array.isArray(update.body)) update.body = [update.body];
+				existing.body = [...existing.body, ...update.body];
+			}
+
+			return reducedUpdates;
 		}, []);
 
-		return req.body.reduce((prev, update) => {
+		return data.reduce((prev, update) => {
 			return prev.then(() => {
 				const validation = this.model.validateUpdate(update.body);
 				if (!validation.isValid) {
@@ -572,16 +582,15 @@ class UpdateMany extends Route {
 					});
 			});
 		}, Promise.resolve())
-			.then(() => 'foo');
+			.then(() => data);
 	}
 
 	_exec(req, res, data) {
-		console.log(validate);
 		const output = [];
-		return req.body.reduce(
+		return data.reduce(
 			(prev, body) => prev
 				.then(() => this.model.updateByPath(body.body, body.id))
-				.then((result) => output.push({id: body.id, result: result})),
+				.then((result) => output.push({id: body.id, results: result})),
 			Promise.resolve(),
 		)
 			.then(() => output);
