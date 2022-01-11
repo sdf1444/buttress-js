@@ -82,14 +82,15 @@ class Model {
 	 * @private
 	 */
 	_initModel(model) {
+		const name = Sugar.String.camelize(model);
 		const CoreSchemaModel = require(`./schema/${model.toLowerCase()}`);
 
-		if (!this.models[model]) {
-			this.models[model] = new CoreSchemaModel(this.mongoDb);
+		if (!this.models[name]) {
+			this.models[name] = new CoreSchemaModel(this.mongoDb);
 		}
 
-		this.__defineGetter__(model, () => this.models[model]);
-		return this.models[model];
+		this.__defineGetter__(name, () => this.models[name]);
+		return this.models[name];
 	}
 
 	/**
@@ -126,7 +127,7 @@ function _getModels() {
 	for (let x = 0; x < filenames.length; x++) {
 		const file = filenames[x];
 		if (path.extname(file) === '.js') {
-			files.push(Sugar.String.capitalize(path.basename(file, '.js')));
+			files.push(path.basename(file, '.js'));
 		}
 	}
 	return files;

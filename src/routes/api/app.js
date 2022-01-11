@@ -366,126 +366,73 @@ class UpdateAppRoles extends Route {
 routes.push(UpdateAppRoles);
 
 /**
- * @class AddAppMetadata
- */
-class AddAppMetadata extends Route {
+* @class AddAppRelationship
+*/
+class AddAppRelationship extends Route {
 	constructor() {
-		super('app/metadata/:key', 'ADD APP METADATA');
+		super('app/relationship', 'ADD App Relationship');
 		this.verb = Route.Constants.Verbs.POST;
-		this.auth = Route.Constants.Auth.ADMIN;
+		this.auth = Route.Constants.Auth.SUPER;
 		this.permissions = Route.Constants.Permissions.ADD;
 
-		this._app = false;
+		// Fetch model
+		this.schema = new Schema(Model.AppRelationship.schemaData);
+		this.model = Model.AppRelationship;
 	}
 
 	_validate(req, res, token) {
 		return new Promise((resolve, reject) => {
-			Model.App.findById(req.appDetails._id).then((app) => {
-				if (!app) {
-					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
+			const validation = this.model.validate(req.body);
+			if (!validation.isValid) {
+				if (validation.missing.length > 0) {
+					this.log(`${this.schema.name}: Missing field: ${validation.missing[0]}`, Route.LogLevel.ERR, req.id);
+					return reject(new Helpers.RequestError(400, `${this.schema.name}: Missing field: ${validation.missing[0]}`));
 				}
-				try {
-					JSON.parse(req.body.value);
-				} catch (e) {
-					this.log(`ERROR: ${e.message}`, Route.LogLevel.ERR);
-					this.log(req.body.value, Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_json`));
+				if (validation.invalid.length > 0) {
+					this.log(`${this.schema.name}: Invalid value: ${validation.invalid[0]}`, Route.LogLevel.ERR, req.id);
+					return reject(new Helpers.RequestError(400, `${this.schema.name}: Invalid value: ${validation.invalid[0]}`));
 				}
 
-				this._app = app;
-				resolve(true);
-			});
+				this.log(`${this.schema.name}: Unhandled Error`, Route.LogLevel.ERR, req.id);
+				return reject(new Helpers.RequestError(400, `${this.schema.name}: Unhandled error.`));
+			}
+
+			this.model.isDuplicate(req.body)
+				.then((res) => {
+					if (res === true) {
+						this.log(`${this.schema.name}: Duplicate entity`, Route.LogLevel.ERR, req.id);
+						return reject(new Helpers.RequestError(400, `duplicate`));
+					}
+					resolve(true);
+				});
 		});
 	}
 
 	_exec(req, res, validate) {
-		return this._app.addOrUpdateMetadata(req.params.key, req.body.value)
-			.then((a) => a.details);
-	}
-}
-routes.push(AddAppMetadata);
-
-/**
- * @class UpdateAppMetadata
- */
-class UpdateAppMetadata extends Route {
-	constructor() {
-		super('app/metadata/:key', 'UPDATE APP METADATA');
-		this.verb = Route.Constants.Verbs.PUT;
-		this.auth = Route.Constants.Auth.ADMIN;
-		this.permissions = Route.Constants.Permissions.ADD;
-
-		this._app = false;
-	}
-
-	_validate(req, res, token) {
 		return new Promise((resolve, reject) => {
-			Model.App.findById(req.appDetails._id).then((app) => {
-				if (!app) {
-					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
-				}
-				if (app.findMetadata(req.params.key) === false) {
-					this.log('ERROR: Metadata does not exist', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `missing_metadata`));
-				}
-				try {
-					JSON.parse(req.body.value);
-				} catch (e) {
-					this.log(`ERROR: ${e.message}`, Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_json`));
-				}
+			Model.AppRelationship.add(req.body)
+				.then((res) => {
+					const relationship = (res.relationship) ? res.relationship : res;
+					this.log(`Added App Relationship ${relationship._id}`);
 
-				this._app = app;
-				resolve(true);
-			});
+					if (res.token) {
+						return Object.assign(relationship, {
+							destination: {
+								...relationship.destination,
+								sourceToken: res.token.value,
+							},
+						});
+					}
+
+					return relationship;
+				})
+				.then(resolve, reject);
 		});
 	}
-
-	_exec(req, res, validate) {
-		return this._app.addOrUpdateMetadata(req.params.key, req.body.value);
-	}
 }
-routes.push(UpdateAppMetadata);
+routes.push(AddAppRelationship);
 
-/**
- * @class GetAppMetadata
- */
-class GetAppMetadata extends Route {
-	constructor() {
-		super('app/metadata/:key', 'GET APP METADATA');
-		this.verb = Route.Constants.Verbs.GET;
-		this.auth = Route.Constants.Auth.ADMIN;
-		this.permissions = Route.Constants.Permissions.GET;
 
-		this._metadata = null;
-	}
-
-	_validate(req, res, token) {
-		return new Promise((resolve, reject) => {
-			Logging.log(`AppID: ${req.appDetails._id}`, Route.LogLevel.DEBUG);
-			Model.App.findById(req.appDetails._id).then((app) => {
-				if (!app) {
-					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
-				}
-				this._metadata = app.findMetadata(req.params.key);
-				if (this._metadata === false) {
-					this.log('WARN: App Metadata Not Found', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `missing_metadata`));
-				}
-
-				resolve(true);
-			});
-		});
-	}
-
-	_exec(req, res, validate) {
-		return this._metadata.value;
-	}
-}
-routes.push(GetAppMetadata);
 
 /**
  * @type {*[]}

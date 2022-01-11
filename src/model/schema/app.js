@@ -63,17 +63,6 @@ class AppSchemaModel extends SchemaModel {
 					__default: '',
 					__allowUpdate: true,
 				},
-				type: {
-					__type: 'string',
-					__default: 'server',
-					__enum: type,
-					__allowUpdate: true,
-				},
-				domain: {
-					__type: 'string',
-					__default: '',
-					__allowUpdate: true,
-				},
 				apiPath: {
 					__type: 'string',
 					__default: '',
@@ -94,6 +83,36 @@ class AppSchemaModel extends SchemaModel {
 					__type: 'array',
 					__required: true,
 					__allowUpdate: true,
+				},
+				__appRelationships: {
+					__type: 'array',
+					__allowUpdate: true,
+					__schema: {
+						reference: {
+							__type: 'string',
+							__required: true,
+							__default: null,
+							__allowUpdate: true,
+						},
+						url: {
+							__type: 'string',
+							__required: true,
+							__default: null,
+							__allowUpdate: true,
+						},
+						token: {
+							__type: 'string',
+							__required: true,
+							__default: null,
+							__allowUpdate: true,
+						},
+						schema: {
+							__type: 'array',
+							__itemtype: 'string',
+							__required: true,
+							__allowUpdate: true,
+						},
+					},
 				},
 			},
 		};
@@ -208,34 +227,7 @@ class AppSchemaModel extends SchemaModel {
 	}
 
 	/**
-	 * @param {String} name - name of the data folder to create
-	 * @param {Boolean} isPublic - true for /public (which is available via the static middleware) otherwise /private
-	 * @return {String} - UID
-	 */
-	mkDataDir(name, isPublic) {
-		const uid = this.getPublicUID();
-		const baseName = `${Config.paths.appData}/${isPublic ? 'public' : 'private'}/${uid}`;
-
-		return new Promise((resolve, reject) => {
-			fs.mkdir(baseName, (err) => {
-				if (err && err.code !== 'EEXIST') {
-					reject(err);
-					return;
-				}
-				const dirName = `${baseName}/${name}`;
-				fs.mkdir(dirName, (err) => {
-					if (err && err.code !== 'EEXIST') {
-						reject(err);
-						return;
-					}
-					resolve();
-				});
-			});
-		});
-	}
-
-	/**
-	 * @return {String} - UID
+	 * @return {String} - UIDk
 	 */
 	getPublicUID() {
 		return this.genPublicUID(this.name, this._id);
@@ -271,20 +263,6 @@ class AppSchemaModel extends SchemaModel {
 		return uid;
 	}
 }
-/**
- * Schema Virtual Methods
- */
-// schema.virtual('details').get(function() {
-//   return {
-//     id: this._id,
-//     name: this.name,
-//     type: this.type,
-//     token: this.tokenValue,
-//     owner: this.ownerDetails,
-//     publicUid: this.getPublicUID(),
-//     metadata: this.metadata.map(m => ({key: m.key, value: JSON.parse(m.value)}))
-//   };
-// });
 
 /**
  * Exports

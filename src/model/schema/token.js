@@ -20,10 +20,11 @@ const Logging = require('../../logging');
 /**
  * Constants
 */
-const type = ['app', 'user'];
+const type = ['app', 'user', 'relationship'];
 const Type = {
 	APP: type[0],
 	USER: type[1],
+	RELATIONSHIP: type[2],
 };
 
 const authLevel = [0, 1, 2, 3];
@@ -65,7 +66,7 @@ class TokenSchemaModel extends SchemaModel {
 				},
 				value: {
 					__type: 'string',
-					__default: '',
+					__default: null,
 					__required: true,
 					__allowUpdate: true,
 				},
@@ -110,11 +111,19 @@ class TokenSchemaModel extends SchemaModel {
 				},
 				_app: {
 					__type: 'id',
+					__default: null,
 					__required: true,
 					__allowUpdate: false,
 				},
 				_user: {
 					__type: 'id',
+					__default: null,
+					__required: true,
+					__allowUpdate: false,
+				},
+				_relationshipId: {
+					__type: 'id',
+					__default: null,
 					__required: true,
 					__allowUpdate: false,
 				},
