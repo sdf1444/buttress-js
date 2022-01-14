@@ -321,6 +321,11 @@ const __prepareSchemaResult = (result, dataDisposition, filter, permissions, tok
 			chunk = Object.assign({}, chunk);
 			if (token && token.type === 'app') return chunk;
 
+			// NOT GOOD
+			if (token && token.type === 'relationship') {
+				return chunk;
+			}
+
 			let filterChunk = false;
 			if (token) {
 				const tokenUser = token._user.toString();

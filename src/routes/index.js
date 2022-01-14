@@ -180,11 +180,11 @@ class Routes {
 		Schema.decode(app.__schema)
 			.filter((s) => s.type === 'collection')
 			.forEach((schema) => {
-				Logging.logSilly(`Routes:_generateAppRoutes ${app._id} init routes for ${schema.collection}`);
+				Logging.logSilly(`Routes:_generateAppRoutes ${app._id} init routes /${app.apiPath} for ${schema.collection}`);
 				return this._initSchemaRoutes(appRouter, app, schema);
 			});
 
-		this._registerRouter(app._id, appRouter);
+		this._registerRouter(app.apiPath, appRouter);
 	}
 
 	/**
@@ -273,16 +273,30 @@ class Routes {
 
 					req.token = token;
 
+					Logging.logTimer(`_authenticateToken:got-token ${(req.token) ? req.token._id : token}`,
+						req.timer, Logging.Constants.LogLevel.SILLY, req.id);
+
 					resolve(token);
 				});
 			})
 			.then(() => (req.token._app) ? Model.App.findById(req.token._app) : null)
 			.then((app) => {
 				Model.authApp = req.authApp = app;
+
+				Logging.logTimer(`_authenticateToken:got-app ${(req.authApp) ? req.authApp._id : app}`,
+					req.timer, Logging.Constants.LogLevel.SILLY, req.id);
+
+				if (req.authApp) {
+					Logging.logTimer(`_authenticateToken:got-app shortId: ${Helpers.shortId(app._id)}`,
+						req.timer, Logging.Constants.LogLevel.SILLY, req.id);
+				}
 			})
 			.then(() => (req.token._user) ? Model.User.findById(req.token._user) : null)
 			.then((user) => {
 				req.authUser = user;
+
+				Logging.logTimer(`_authenticateToken:got-user ${(req.authUser) ? req.authUser._id : user}`,
+					req.timer, Logging.Constants.LogLevel.SILLY, req.id);
 			})
 			.then(Logging.Promise.logTimer('_authenticateToken:end', req.timer, Logging.Constants.LogLevel.SILLY, req.id))
 			.then(next)

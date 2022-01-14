@@ -11,7 +11,7 @@
  *
  */
 
-const SchemaModel = require('../schemaModel');
+const SchemaModelMongoDB = require('../type/mongoDB');
 const Model = require('../');
 const Logging = require('../../logging');
 // const Shared = require('../shared');
@@ -34,7 +34,7 @@ const App = {
 	LINKEDIN: apps[3],
 };
 
-class UserSchemaModel extends SchemaModel {
+class UserSchemaModel extends SchemaModelMongoDB {
 	constructor(MongoDb) {
 		const schema = UserSchemaModel.Schema;
 		super(MongoDb, schema);

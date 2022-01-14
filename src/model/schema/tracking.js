@@ -11,7 +11,7 @@
  *
  */
 
-const SchemaModel = require('../schemaModel');
+const SchemaModelMongoDB = require('../type/mongoDB');
 const ObjectId = require('mongodb').ObjectId;
 const Model = require('../');
 const Logging = require('../../logging');
@@ -28,7 +28,7 @@ const Type = {
 	LOGGING: type[2],
 };
 
-class TrackingSchemaModel extends SchemaModel {
+class TrackingSchemaModel extends SchemaModelMongoDB {
 	constructor(MongoDb) {
 		const schema = TrackingSchemaModel.Schema;
 		super(MongoDb, schema);

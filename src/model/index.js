@@ -15,8 +15,10 @@ const fs = require('fs');
 const Logging = require('../logging');
 const Sugar = require('sugar');
 const Schema = require('../schema');
-const SchemaModel = require('./schemaModel');
 const shortId = require('../helpers').shortId;
+
+const SchemaModelButtress = require('./type/buttress');
+const SchemaModelMongoDB = require('./type/mongoDB');
 
 /**
  * @param {string} model - name of the model to load
@@ -51,7 +53,7 @@ class Model {
 			const models = _getModels();
 			Logging.log(models, Logging.Constants.LogLevel.SILLY);
 			for (let x = 0; x < models.length; x++) {
-				this._initModel(models[x]);
+				this._initCoreModel(models[x]);
 			}
 			resolve();
 		});
@@ -81,7 +83,7 @@ class Model {
 	 * @return {object} SchemaModel - initiated schema model built from passed schema object
 	 * @private
 	 */
-	_initModel(model) {
+	_initCoreModel(model) {
 		const name = Sugar.String.camelize(model);
 		const CoreSchemaModel = require(`./schema/${model.toLowerCase()}`);
 
@@ -103,12 +105,32 @@ class Model {
 		let name = `${schemaData.collection}`;
 		const appShortId = (app) ? shortId(app._id) : null;
 
-		if (appShortId) {
-			name = `${appShortId}-${schemaData.collection}`;
-		}
+		name = (appShortId) ? `${appShortId}-${schemaData.collection}` : name;
 
+		// Is relationship
 		if (!this.models[name]) {
-			this.models[name] = new SchemaModel(this.mongoDb, schemaData, app);
+			if (schemaData.$relationship) {
+				const [relationship, collection] = schemaData.$relationship.split('.');
+
+				if (!relationship || !collection) {
+					Logging.logWarn(`Invalid Schema relationship descriptor (${relationship}.${collection})`);
+					return;
+				}
+
+				return this.AppRelationship.findOne({
+					'type': 'destination',
+					'name': relationship,
+					'destination.appId': app._id,
+				})
+					.then((relationship) => {
+						this.models[name] = new SchemaModelButtress(schemaData, app, relationship);
+
+						this.__defineGetter__(name, () => this.models[name]);
+						return this.models[name];
+					});
+			} else {
+				this.models[name] = new SchemaModelMongoDB(this.mongoDb, schemaData, app);
+			}
 		}
 
 		this.__defineGetter__(name, () => this.models[name]);

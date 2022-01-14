@@ -12,7 +12,7 @@
  */
 
 const Crypto = require('crypto');
-const SchemaModel = require('../schemaModel');
+const SchemaModelMongoDB = require('../type/mongoDB');
 const ObjectId = require('mongodb').ObjectId;
 // const Shared = require('../shared');
 const Logging = require('../../logging');
@@ -35,7 +35,7 @@ const AuthLevel = {
 	SUPER: 3,
 };
 
-class TokenSchemaModel extends SchemaModel {
+class TokenSchemaModel extends SchemaModelMongoDB {
 	constructor(MongoDb) {
 		const schema = TokenSchemaModel.Schema;
 		super(MongoDb, schema);

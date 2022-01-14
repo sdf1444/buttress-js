@@ -474,6 +474,13 @@ class Route {
 				return;
 			}
 
+			// NOT GOOD
+			if (req.token.type === 'relationship') {
+				Logging.logTimer('_authenticate:end-app-token', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
+				resolve(req.token);
+				return;
+			}
+
 			// Default endpoint disposition
 			const disposition = {
 				GET: 'deny',
@@ -516,11 +523,6 @@ class Route {
 			if (this.schema) {
 				Logging.logTimer(`_authenticate:start-schema-role ${req.token.role}`, req.timer, Logging.Constants.LogLevel.SILLY, req.id);
 				authorised = false;
-
-				// HACK - BYPASS Permissions for company / service
-				if (['company', 'service'].includes(this.schema.data.name)) {
-					return resolve(req.token);
-				}
 
 				// If schema has endpointDisposition roles set for the role then
 				// user the defined settings instead.

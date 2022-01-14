@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const crypto = require('crypto');
-const SchemaModel = require('../schemaModel');
+const SchemaModelMongoDB = require('../type/mongoDB');
 const ObjectId = require('mongodb').ObjectId;
 const Model = require('../');
 const Schema = require('../../schema');
@@ -33,7 +33,7 @@ const Type = {
 	BROWSER: type[3],
 };
 
-class AppSchemaModel extends SchemaModel {
+class AppSchemaModel extends SchemaModelMongoDB {
 	constructor(MongoDb) {
 		const schema = AppSchemaModel.Schema;
 		super(MongoDb, schema);
@@ -130,6 +130,7 @@ class AppSchemaModel extends SchemaModel {
 			authLevel: body.authLevel,
 			permissions: body.permissions,
 			domain: body.domain,
+			apiPath: body.apiPath,
 		};
 		let _token = null;
 

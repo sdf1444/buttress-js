@@ -10,7 +10,7 @@
  * @author Chris Bates-Keegan
  *
  */
-const SchemaModel = require('../schemaModel');
+const SchemaModelMongoDB = require('../type/mongoDB');
 const ObjectId = require('mongodb').ObjectId;
 const Model = require('../');
 const Logging = require('../../logging');
@@ -29,7 +29,7 @@ const Visibility = {
 	PRIVATE: visibility[1],
 };
 
-class ActivitySchemaModel extends SchemaModel {
+class ActivitySchemaModel extends SchemaModelMongoDB {
 	constructor(MongoDb) {
 		const schema = ActivitySchemaModel.Schema;
 		super(MongoDb, schema);

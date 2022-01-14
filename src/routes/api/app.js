@@ -410,7 +410,7 @@ class AddAppRelationship extends Route {
 
 	_exec(req, res, validate) {
 		return new Promise((resolve, reject) => {
-			Model.AppRelationship.add(req.body)
+			this.model.add(req.body)
 				.then((res) => {
 					const relationship = (res.relationship) ? res.relationship : res;
 					this.log(`Added App Relationship ${relationship._id}`);
@@ -432,7 +432,54 @@ class AddAppRelationship extends Route {
 }
 routes.push(AddAppRelationship);
 
+/**
+ * @class UpdateAppSchema
+ */
+class UpdateAppRelationshipPolicy extends Route {
+	constructor() {
+		super('app/relationship/:relationshipId/policy', 'UPDATE App Relationship Policy');
+		this.verb = Route.Constants.Verbs.PUT;
+		this.auth = Route.Constants.Auth.ADMIN;
+		this.permissions = Route.Constants.Permissions.WRITE;
 
+		// Fetch model
+		this.schema = new Schema(Model.AppRelationship.schemaData);
+		this.model = Model.AppRelationship;
+	}
+
+	_validate(req, res, token) {
+		return new Promise((resolve, reject) => {
+			if (!req.authApp) {
+				this.log('ERROR: No authenticated app', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(400, `no_authenticated_app`));
+			}
+
+			if (!req.params.relationshipId) {
+				this.log('ERROR: No relationship Id', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(400, `missing_relationship_id`));
+			}
+
+			// Lookup
+			this.model.isDuplicate(req.params.relationshipId, {
+				'source.appId': req.authApp._id,
+			})
+				.then((res) => {
+					if (res === true) {
+						this.log(`${this.schema.name}: Duplicate entity`, Route.LogLevel.ERR, req.id);
+						return reject(new Helpers.RequestError(400, `duplicate`));
+					}
+
+					resolve(true);
+				});
+		});
+	}
+
+	_exec(req, res, validate) {
+		return this.model.updatePolicy(req.authApp._id, req.params.relationshipId, req.body)
+			.then(() => true);
+	}
+}
+routes.push(UpdateAppRelationshipPolicy);
 
 /**
  * @type {*[]}
