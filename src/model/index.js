@@ -107,23 +107,22 @@ class Model {
 
 		name = (appShortId) ? `${appShortId}-${schemaData.collection}` : name;
 
-		// Is relationship
+		// Is data sharing
 		if (!this.models[name]) {
-			if (schemaData.$relationship) {
-				const [relationship, collection] = schemaData.$relationship.split('.');
+			if (schemaData.remote) {
+				const [dataSharing, collection] = schemaData.remote.split('.');
 
-				if (!relationship || !collection) {
-					Logging.logWarn(`Invalid Schema relationship descriptor (${relationship}.${collection})`);
+				if (!dataSharing || !collection) {
+					Logging.logWarn(`Invalid Schema remote descriptor (${dataSharing}.${collection})`);
 					return;
 				}
 
-				return this.AppRelationship.findOne({
-					'type': 'destination',
-					'name': relationship,
-					'destination.appId': app._id,
+				return this.AppDataSharing.findOne({
+					'name': dataSharing,
+					'_appId': app._id,
 				})
-					.then((relationship) => {
-						this.models[name] = new SchemaModelButtress(schemaData, app, relationship);
+					.then((dataSharing) => {
+						this.models[name] = new SchemaModelButtress(schemaData, app, dataSharing);
 
 						this.__defineGetter__(name, () => this.models[name]);
 						return this.models[name];

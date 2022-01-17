@@ -322,7 +322,7 @@ const __prepareSchemaResult = (result, dataDisposition, filter, permissions, tok
 			if (token && token.type === 'app') return chunk;
 
 			// NOT GOOD
-			if (token && token.type === 'relationship') {
+			if (token && token.type === 'dataSharing') {
 				return chunk;
 			}
 

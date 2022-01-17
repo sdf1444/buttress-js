@@ -84,36 +84,6 @@ class AppSchemaModel extends SchemaModelMongoDB {
 					__required: true,
 					__allowUpdate: true,
 				},
-				__appRelationships: {
-					__type: 'array',
-					__allowUpdate: true,
-					__schema: {
-						reference: {
-							__type: 'string',
-							__required: true,
-							__default: null,
-							__allowUpdate: true,
-						},
-						url: {
-							__type: 'string',
-							__required: true,
-							__default: null,
-							__allowUpdate: true,
-						},
-						token: {
-							__type: 'string',
-							__required: true,
-							__default: null,
-							__allowUpdate: true,
-						},
-						schema: {
-							__type: 'array',
-							__itemtype: 'string',
-							__required: true,
-							__allowUpdate: true,
-						},
-					},
-				},
 			},
 		};
 	}
@@ -247,21 +217,21 @@ class AppSchemaModel extends SchemaModelMongoDB {
 	 * @return {String} - UID
 	 */
 	genPublicUID(name, id) {
-		const hash = crypto.createHash('sha512');
-		// Logging.log(`Create UID From: ${this.name}.${this.tokenValue}`, Logging.Constants.LogLevel.DEBUG);
-		hash.update(`${name}.${id}`);
-		const bytes = hash.digest();
+		// const hash = crypto.createHash('sha512');
+		// // Logging.log(`Create UID From: ${this.name}.${this.tokenValue}`, Logging.Constants.LogLevel.DEBUG);
+		// hash.update(`${name}.${id}`);
+		// const bytes = hash.digest();
 
-		const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-		const mask = 0x3d;
-		let uid = '';
+		// const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		// const mask = 0x3d;
+		// let uid = '';
 
-		for (let byte = 0; byte < 32; byte++) {
-			uid += chars[bytes[byte] & mask];
-		}
+		// for (let byte = 0; byte < 32; byte++) {
+		// 	uid += chars[bytes[byte] & mask];
+		// }
 
-		// Logging.log(`Got UID: ${uid}`, Logging.Constants.LogLevel.SILLY);
-		return uid;
+		// // Logging.log(`Got UID: ${uid}`, Logging.Constants.LogLevel.SILLY);
+		return id;
 	}
 }
 

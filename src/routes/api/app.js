@@ -366,18 +366,18 @@ class UpdateAppRoles extends Route {
 routes.push(UpdateAppRoles);
 
 /**
-* @class AddAppRelationship
+* @class AddDataSharing
 */
-class AddAppRelationship extends Route {
+class AddDataSharing extends Route {
 	constructor() {
-		super('app/relationship', 'ADD App Relationship');
+		super('app/dataSharing', 'ADD Data Sharing');
 		this.verb = Route.Constants.Verbs.POST;
 		this.auth = Route.Constants.Auth.SUPER;
 		this.permissions = Route.Constants.Permissions.ADD;
 
 		// Fetch model
-		this.schema = new Schema(Model.AppRelationship.schemaData);
-		this.model = Model.AppRelationship;
+		this.schema = new Schema(Model.AppDataSharing.schemaData);
+		this.model = Model.AppDataSharing;
 	}
 
 	_validate(req, res, token) {
@@ -412,39 +412,36 @@ class AddAppRelationship extends Route {
 		return new Promise((resolve, reject) => {
 			this.model.add(req.body)
 				.then((res) => {
-					const relationship = (res.relationship) ? res.relationship : res;
-					this.log(`Added App Relationship ${relationship._id}`);
+					const dataSharing = (res.dataSharing) ? res.dataSharing : res;
+					this.log(`Added App Data Sharing ${dataSharing._id}`);
 
 					if (res.token) {
-						return Object.assign(relationship, {
-							destination: {
-								...relationship.destination,
-								sourceToken: res.token.value,
-							},
+						return Object.assign(dataSharing, {
+							token: res.token.value,
 						});
 					}
 
-					return relationship;
+					return dataSharing;
 				})
 				.then(resolve, reject);
 		});
 	}
 }
-routes.push(AddAppRelationship);
+routes.push(AddDataSharing);
 
 /**
- * @class UpdateAppSchema
+ * @class UpdateAppDataSharingPolicy
  */
-class UpdateAppRelationshipPolicy extends Route {
+class UpdateAppDataSharingPolicy extends Route {
 	constructor() {
-		super('app/relationship/:relationshipId/policy', 'UPDATE App Relationship Policy');
+		super('app/dataSharing/:dataSharingId/policy', 'UPDATE App Data Sharing Policy');
 		this.verb = Route.Constants.Verbs.PUT;
 		this.auth = Route.Constants.Auth.ADMIN;
 		this.permissions = Route.Constants.Permissions.WRITE;
 
 		// Fetch model
-		this.schema = new Schema(Model.AppRelationship.schemaData);
-		this.model = Model.AppRelationship;
+		this.schema = new Schema(Model.AppDataSharing.schemaData);
+		this.model = Model.AppDataSharing;
 	}
 
 	_validate(req, res, token) {
@@ -454,13 +451,13 @@ class UpdateAppRelationshipPolicy extends Route {
 				return reject(new Helpers.RequestError(400, `no_authenticated_app`));
 			}
 
-			if (!req.params.relationshipId) {
-				this.log('ERROR: No relationship Id', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_relationship_id`));
+			if (!req.params.dataSharingId) {
+				this.log('ERROR: No Data Sharing Id', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(400, `missing_data_sharing_id`));
 			}
 
 			// Lookup
-			this.model.isDuplicate(req.params.relationshipId, {
+			this.model.isDuplicate(req.params.dataSharingId, {
 				'source.appId': req.authApp._id,
 			})
 				.then((res) => {
@@ -475,11 +472,11 @@ class UpdateAppRelationshipPolicy extends Route {
 	}
 
 	_exec(req, res, validate) {
-		return this.model.updatePolicy(req.authApp._id, req.params.relationshipId, req.body)
+		return this.model.updatePolicy(req.authApp._id, req.params.dataSharingId, req.body)
 			.then(() => true);
 	}
 }
-routes.push(UpdateAppRelationshipPolicy);
+routes.push(UpdateAppDataSharingPolicy);
 
 /**
  * @type {*[]}

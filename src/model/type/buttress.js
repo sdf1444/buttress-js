@@ -22,21 +22,21 @@ const SchemaModel = require('../schemaModel');
  **********************************************************************************/
 
 class SchemaModelButtress extends SchemaModel {
-	constructor(schemaData, app, relationship) {
+	constructor(schemaData, app, dataSharing) {
 		super(schemaData, app);
 
-		const [_, collection] = schemaData.$relationship.split('.');
+		const [_, collection] = schemaData.remote.split('.');
 
-		this.endpoint = relationship.source.endpoint;
+		this.endpoint = dataSharing.remoteApp.endpoint;
 
-		this.token = relationship.destination.sourceToken;
+		this.token = dataSharing.remoteApp.sourceToken;
 
 		this.buttress = Buttress.new();
 
 		this.buttress.init({
 			buttressUrl: this.endpoint,
 			appToken: this.token,
-			apiPath: relationship.source.apiPath,
+			apiPath: dataSharing.remoteApp.apiPath,
 			allowUnauthorized: true, // WUT!?
 		})
 			.then(() => {

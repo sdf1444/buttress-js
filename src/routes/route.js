@@ -475,7 +475,7 @@ class Route {
 			}
 
 			// NOT GOOD
-			if (req.token.type === 'relationship') {
+			if (req.token.type === 'dataSharing') {
 				Logging.logTimer('_authenticate:end-app-token', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
 				resolve(req.token);
 				return;

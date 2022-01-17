@@ -20,11 +20,11 @@ const Logging = require('../../logging');
 /**
  * Constants
 */
-const type = ['app', 'user', 'relationship'];
+const type = ['app', 'user', 'dataSharing'];
 const Type = {
 	APP: type[0],
 	USER: type[1],
-	RELATIONSHIP: type[2],
+	DATA_SHARING: type[2],
 };
 
 const authLevel = [0, 1, 2, 3];
@@ -121,7 +121,7 @@ class TokenSchemaModel extends SchemaModelMongoDB {
 					__required: true,
 					__allowUpdate: false,
 				},
-				_relationshipId: {
+				_appDataSharingId: {
 					__type: 'id',
 					__default: null,
 					__required: true,

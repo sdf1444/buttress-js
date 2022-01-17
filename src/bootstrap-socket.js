@@ -22,7 +22,7 @@ const Config = require('node-env-obj')();
 const Model = require('./model');
 const Logging = require('./logging');
 const MongoClient = require('mongodb').MongoClient;
-// const ObjectId = require('mongodb').ObjectId;
+const ObjectId = require('mongodb').ObjectId;
 const NRP = require('node-redis-pubsub');
 
 class BootstrapSocket {
@@ -30,6 +30,7 @@ class BootstrapSocket {
 		Logging.setLogLevel(Logging.Constants.LogLevel.INFO);
 
 		this.processes = os.cpus().length;
+		this.processes = 1;
 		this.workers = [];
 
 		this.__apps = [];
@@ -132,7 +133,7 @@ class BootstrapSocket {
 			});
 	}
 
-	__initWorker() {
+	async __initWorker() {
 		const app = new Express();
 		const server = app.listen(0, 'localhost');
 		const io = sio(server, {
@@ -148,6 +149,8 @@ class BootstrapSocket {
 		});
 		const namespace = [];
 
+		await this.__initMongoConnect();
+
 		// As of v7, the library will no longer create Redis clients on behalf of the user.
 		const redisClient = createClient(Config.redis);
 		io.adapter(redisAdapter(redisClient, redisClient.duplicate()));
@@ -160,6 +163,40 @@ class BootstrapSocket {
 			});
 		});
 
+		console.log('Creating Dynamic listener');
+		const appNamespaces = io.of(/^\/[a-f\d]{24}$/i);
+		appNamespaces.use(async (socket, next) => {
+			const publicId = socket.nsp.name.substring(1);
+			const rawToken = socket.handshake.query.token;
+
+			Logging.logDebug(`Fetching token with value: ${rawToken}`);
+			const token = await Model.Token.findOne({value: rawToken});
+			if (!token) {
+				Logging.logDebug(`Invalid token, closing connection: ${socket.id}`);
+				return next('invalid-token');
+			}
+
+			Logging.logDebug(`Fetching app with publicId: ${publicId}`);
+			const app = await Model.App.findOne({_id: new ObjectId(publicId)});
+			if (!app) {
+				Logging.logDebug(`Invalid app, closing connection: ${socket.id}`);
+				return next('invalid-app');
+			}
+
+			if (token.role) {
+				socket.join(token.role);
+				Logging.log(`[${publicId}][${token.role}] Connected ${socket.id}`);
+			} else {
+				Logging.log(`[${publicId}][Global] Connected ${socket.id}`);
+			}
+
+			socket.on('disconnect', () => {
+				Logging.logSilly(`[${publicId}] Disconnect ${socket.id}`);
+			});
+
+			next();
+		});
+
 		process.on('message', (message, input) => {
 			if (message === 'buttress:connection') {
 				const connection = input;
@@ -168,10 +205,8 @@ class BootstrapSocket {
 				return;
 			}
 			if (message['buttress:initAppTokens']) {
-				const appTokens = message['buttress:initAppTokens'];
-				appTokens.apps.forEach((app) => {
-					namespace.push(this.__initSocketNamespace(io, app.publicId, appTokens));
-				});
+				const appTokens = message['buttress:initAppTokens']; // This is shit
+				console.log('Clean me up');
 			}
 		});
 
