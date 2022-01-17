@@ -205,7 +205,7 @@ class BootstrapSocket {
 				return;
 			}
 			if (message['buttress:initAppTokens']) {
-				const appTokens = message['buttress:initAppTokens']; // This is shit
+				const appTokens = message['buttress:initAppTokens']; // This is sh*t
 				console.log('Clean me up');
 			}
 		});
