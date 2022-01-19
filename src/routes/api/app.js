@@ -10,6 +10,8 @@
  *
  */
 
+const Buttress = require('buttress-js-api');
+
 const Route = require('../route');
 const Model = require('../../model');
 const Logging = require('../../logging');
@@ -397,6 +399,11 @@ class AddDataSharing extends Route {
 				return reject(new Helpers.RequestError(400, `${this.schema.name}: Unhandled error.`));
 			}
 
+			// If we're not super then set the appId to be the current appId
+			if (!req.body._appId || token.authLevel < 3) {
+				req.body._appId = token._app;
+			}
+
 			this.model.isDuplicate(req.body)
 				.then((res) => {
 					if (res === true) {
@@ -410,19 +417,50 @@ class AddDataSharing extends Route {
 
 	_exec(req, res, validate) {
 		return new Promise((resolve, reject) => {
+			let _dataSharing = null;
 			this.model.add(req.body)
 				.then((res) => {
 					const dataSharing = (res.dataSharing) ? res.dataSharing : res;
 					this.log(`Added App Data Sharing ${dataSharing._id}`);
 
+					// TODO: Token shouldn't be released, an exchange should be done between buttress
+					// instances so that this isn't exposed.
 					if (res.token) {
 						return Object.assign(dataSharing, {
-							token: res.token.value,
+							remoteAppToken: res.token.value,
 						});
 					}
 
 					return dataSharing;
 				})
+				.then((dataSharing) => {
+					_dataSharing = dataSharing;
+
+					if (dataSharing.remoteApp.token === null) return dataSharing;
+
+					// If the data sharing was setup with a token we'll try to call the remote app
+					// with the token to notify it off it's token.
+					const api = Buttress.new();
+					return api.init({
+						buttressUrl: dataSharing.remoteApp.endpoint,
+						apiPath: dataSharing.remoteApp.apiPath,
+						appToken: dataSharing.remoteApp.token,
+						allowUnauthorized: true, // Move along, nothing to see here...
+					})
+						.then(() => api.App.activateAppDataSharing({
+							token: dataSharing.remoteAppToken,
+						}))
+						.then((res) => {
+							if (!res) return;
+
+							// If we got the thumbs up from the other instance we can go ahead and activate
+							// the data sharing for this app.
+							return this.model.activate(dataSharing._id);
+						})
+						.then(() => _dataSharing.active = true)
+						.catch(reject);
+				})
+				.then(() => _dataSharing)
 				.then(resolve, reject);
 		});
 	}
@@ -457,13 +495,13 @@ class UpdateAppDataSharingPolicy extends Route {
 			}
 
 			// Lookup
-			this.model.isDuplicate(req.params.dataSharingId, {
-				'source.appId': req.authApp._id,
+			this.model.exists(req.params.dataSharingId, {
+				'_appId': req.authApp._id,
 			})
 				.then((res) => {
-					if (res === true) {
-						this.log(`${this.schema.name}: Duplicate entity`, Route.LogLevel.ERR, req.id);
-						return reject(new Helpers.RequestError(400, `duplicate`));
+					if (res !== true) {
+						this.log(`${this.schema.name}: unknown data sharing`, Route.LogLevel.ERR, req.id);
+						return reject(new Helpers.RequestError(400, `unknown_data_sharing`));
 					}
 
 					resolve(true);
@@ -477,6 +515,59 @@ class UpdateAppDataSharingPolicy extends Route {
 	}
 }
 routes.push(UpdateAppDataSharingPolicy);
+
+/**
+ * @class activ
+ */
+class ActivateAppDataSharing extends Route {
+	constructor() {
+		super('app/dataSharing/activate', 'UPDATE Activate App Data Sharing');
+		this.verb = Route.Constants.Verbs.PUT;
+		this.auth = Route.Constants.Auth.USER;
+		this.permissions = Route.Constants.Permissions.WRITE;
+
+		// Fetch model
+		this.schema = new Schema(Model.AppDataSharing.schemaData);
+		this.model = Model.AppDataSharing;
+	}
+
+	_validate(req, res, token) {
+		return new Promise((resolve, reject) => {
+			if (!req.authApp) {
+				this.log('ERROR: No authenticated app', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(500, `no_authenticated_app`));
+			}
+
+			if (token.type !== Model.Token.Constants.Type.DATA_SHARING) {
+				this.log('ERROR: invalid token type', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(401, `invalid_token_type`));
+			}
+
+			if (!req.body.token) {
+				this.log('ERROR: missing data sharing token', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(400, `missing_data_token`));
+			}
+
+			this.model.findOne({
+				_tokenId: token._id,
+			})
+				.then((dataSharing) => {
+					if (!dataSharing) {
+						this.log(`ERROR: Unable to find dataSharing with token ${token._id}`, Route.LogLevel.ERR, req.id);
+						return reject(new Helpers.RequestError(500, `no_datasharing`));
+					}
+
+					resolve(dataSharing);
+				});
+		});
+	}
+
+	_exec(req, res, dataSharing) {
+		return this.model.activate(dataSharing._id, req.body.token)
+			.then(() => true);
+	}
+}
+routes.push(ActivateAppDataSharing);
 
 /**
  * @type {*[]}

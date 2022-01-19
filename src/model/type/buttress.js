@@ -28,15 +28,15 @@ class SchemaModelButtress extends SchemaModel {
 		const [_, collection] = schemaData.remote.split('.');
 
 		this.endpoint = dataSharing.remoteApp.endpoint;
-
-		this.token = dataSharing.remoteApp.sourceToken;
+		this.token = dataSharing.remoteApp.token;
+		this.apiPath = dataSharing.remoteApp.apiPath;
 
 		this.buttress = Buttress.new();
 
 		this.buttress.init({
 			buttressUrl: this.endpoint,
 			appToken: this.token,
-			apiPath: dataSharing.remoteApp.apiPath,
+			apiPath: this.apiPath,
 			allowUnauthorized: true, // WUT!?
 		})
 			.then(() => {

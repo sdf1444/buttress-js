@@ -328,23 +328,20 @@ class BootstrapSocket {
 		return Number(s) % spread;
 	}
 
-	__nativeMongoConnect() {
+	async __nativeMongoConnect() {
 		const dbName = `${Config.app.code}-${Config.env}`;
 		const mongoUrl = `mongodb://${Config.mongoDb.url}`;
 		Logging.logDebug(`Attempting connection to ${mongoUrl}`);
 
-		return MongoClient.connect(mongoUrl, Config.mongoDb.options)
-			.then((client) => client.db(dbName))
-			.catch(Logging.Promise.logError());
+		const client = await MongoClient.connect(mongoUrl, Config.mongoDb.options)
+
+		return await client.db(dbName);
 	}
 
-	__initMongoConnect() {
-		return this.__nativeMongoConnect()
-			.then((db) => {
-				Model.init(db);
-				return db;
-			})
-			.catch((e) => Logging.logError(e));
+	async __initMongoConnect() {
+		const db = await this.__nativeMongoConnect();
+		await Model.init(db);
+		return db;
 	}
 }
 

@@ -275,6 +275,8 @@ class Routes {
 
 					Logging.logTimer(`_authenticateToken:got-token ${(req.token) ? req.token._id : token}`,
 						req.timer, Logging.Constants.LogLevel.SILLY, req.id);
+					Logging.logTimer(`_authenticateToken:got-token type ${(req.token) ? req.token.type : token}`,
+						req.timer, Logging.Constants.LogLevel.SILLY, req.id);
 
 					resolve(token);
 				});

@@ -107,14 +107,16 @@ class BootstrapRest {
 			Logging.logError(error);
 		});
 
-		process.on('message', (payload) => {
+		process.on('message', async (payload) => {
 			if (payload.type === 'app-schema:updated') {
 				Logging.logDebug(`App Schema Updated: ${payload.appId}`);
-				return Model.initSchema(db)
-					.then(() => this.routes.regenerateAppRoutes(payload.appId));
+				await Model.initSchema(db);
+				await this.routes.regenerateAppRoutes(payload.appId);
+				Logging.logDebug(`Models & Routes regenereated: ${payload.appId}`);
 			} else if (payload.type === 'app-routes:bust-cache') {
+				// TODO: Maybe do this better than
 				Logging.logDebug(`App Routes: cache bust`);
-				this.routes.loadTokens();
+				await this.routes.loadTokens();
 			}
 		});
 

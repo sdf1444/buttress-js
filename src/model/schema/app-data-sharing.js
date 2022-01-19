@@ -46,6 +46,12 @@ class AppDataSharingSchemaModel extends SchemaModelMongoDB {
 					__required: true,
 					__allowUpdate: false,
 				},
+				active: {
+					__type: 'boolean',
+					__default: false,
+					__required: false,
+					__allowUpdate: false,
+				},
 				remoteApp: {
 					endpoint: {
 						__type: 'string',
@@ -103,6 +109,8 @@ class AppDataSharingSchemaModel extends SchemaModelMongoDB {
 			id: new ObjectId(),
 			name: body.name,
 
+			active: false,
+
 			remoteApp: {
 				endpoint: body.remoteApp.endpoint,
 				apiPath: body.remoteApp.apiPath,
@@ -125,14 +133,17 @@ class AppDataSharingSchemaModel extends SchemaModelMongoDB {
 			authLevel: Model.Token.Constants.AuthLevel.USER,
 			permissions: [{route: '*', permission: '*'}],
 		}, {
-			_app: new ObjectId(body.source.appId),
+			_app: new ObjectId(body._appId),
 			_appDataSharingId: new ObjectId(appDataSharing.id),
 		})
 			.then((tokenCursor) => tokenCursor.next())
 			.then((token) => {
 				_token = token;
 
-				return super.add(appDataSharing, {_tokenId: token._id});
+				return super.add(appDataSharing, {
+					_appId: new ObjectId(body._appId),
+					_tokenId: token._id,
+				});
 			})
 			.then((cursor) => cursor.next())
 			.then((dataSharing) => {
@@ -153,15 +164,42 @@ class AppDataSharingSchemaModel extends SchemaModelMongoDB {
 		const update = {$set: {}};
 
 		if (type === 'remote') {
-			update.$set['remoteApp'] = policy;
+			update.$set['dataSharing.remoteApp'] = policy;
 		} else {
-			update.$set['localApp'] = policy;
+			update.$set['dataSharing.localApp'] = policy;
 		}
 
 		return new Promise((resolve) => {
 			this.collection.updateOne({
 				'_id': new ObjectId(appDataSharingId),
 				'_appId': new ObjectId(appId),
+			}, update, {}, (err, object) => {
+				if (err) throw new Error(err);
+
+				resolve(object);
+			});
+		});
+	}
+
+	/**
+	 * @param {ObjectId} appDataSharingId - Data Sharing Id id which needs to be updated
+	 * @param {String} remoteAppToken - token for remote app
+	 * @return {Promise} - resolves when save operation is completed
+	 */
+	activate(appDataSharingId, remoteAppToken = null) {
+		const update = {
+			$set: {
+				active: true,
+			},
+		};
+
+		if (remoteAppToken) {
+			update.$set['remoteApp.token'] = remoteAppToken;
+		}
+
+		return new Promise((resolve) => {
+			this.collection.updateOne({
+				'_id': new ObjectId(appDataSharingId),
 			}, update, {}, (err, object) => {
 				if (err) throw new Error(err);
 

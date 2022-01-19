@@ -79,7 +79,7 @@ class SchemaModelMongoDB extends SchemaModel {
 	}
 
 	exists(id, extra = {}) {
-		// Logging.logSilly(`exists: ${this.collectionName} ${id}`);
+		Logging.logSilly(`exists: ${this.collectionName} ${id}`);
 
 		return this.collection.find({
 			_id: new ObjectId(id),

@@ -59,19 +59,20 @@ class Model {
 		});
 	}
 
-	initSchema(db) {
+	async initSchema(db) {
 		if (db) this.mongoDb = db;
 
-		return this.models.App.findAll().toArray()
-			.then((apps) => {
-				apps.forEach((app) => {
-					if (app.__schema) {
-						Schema.buildCollections(Schema.decode(app.__schema)).forEach((schemaData) => {
-							this._initSchemaModel(app, schemaData);
-						});
-					}
-				});
-			});
+		const apps = await this.models.App.findAll().toArray();
+
+		await apps.reduce(async (prev, app) => {
+			await prev;
+			if (!app || !app.__schema) return;
+
+			await Schema.buildCollections(Schema.decode(app.__schema)).reduce(async (prev, schema) => {
+				await prev;
+				await this._initSchemaModel(app, schema);
+			}, Promise.resolve());
+		}, Promise.resolve());
 	}
 
 	initModel(modelName) {
@@ -101,7 +102,7 @@ class Model {
 	 * @return {object} SchemaModel - initiated schema model built from passed schema object
 	 * @private
 	 */
-	_initSchemaModel(app, schemaData) {
+	async _initSchemaModel(app, schemaData) {
 		let name = `${schemaData.collection}`;
 		const appShortId = (app) ? shortId(app._id) : null;
 
@@ -110,23 +111,27 @@ class Model {
 		// Is data sharing
 		if (!this.models[name]) {
 			if (schemaData.remote) {
-				const [dataSharing, collection] = schemaData.remote.split('.');
+				const [dataSharingName, collection] = schemaData.remote.split('.');
 
-				if (!dataSharing || !collection) {
-					Logging.logWarn(`Invalid Schema remote descriptor (${dataSharing}.${collection})`);
+				if (!dataSharingName || !collection) {
+					Logging.logWarn(`Invalid Schema remote descriptor (${dataSharingName}.${collection})`);
 					return;
 				}
 
-				return this.AppDataSharing.findOne({
-					'name': dataSharing,
+				const dataSharing = await this.AppDataSharing.findOne({
+					'name': dataSharingName,
 					'_appId': app._id,
-				})
-					.then((dataSharing) => {
-						this.models[name] = new SchemaModelButtress(schemaData, app, dataSharing);
+				});
 
-						this.__defineGetter__(name, () => this.models[name]);
-						return this.models[name];
-					});
+				if (!dataSharing) {
+					Logging.logError(`Unable to find data sharing (${dataSharingName}.${collection}) ${app}`);
+					return;
+				}
+
+				this.models[name] = new SchemaModelButtress(schemaData, app, dataSharing);
+
+				this.__defineGetter__(name, () => this.models[name]);
+				return this.models[name];
 			} else {
 				this.models[name] = new SchemaModelMongoDB(this.mongoDb, schemaData, app);
 			}
