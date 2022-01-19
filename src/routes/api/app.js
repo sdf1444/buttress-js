@@ -10,6 +10,8 @@
  *
  */
 
+const Buttress = require('buttress-js-api');
+
 const Route = require('../route');
 const Model = require('../../model');
 const Logging = require('../../logging');
@@ -366,126 +368,206 @@ class UpdateAppRoles extends Route {
 routes.push(UpdateAppRoles);
 
 /**
- * @class AddAppMetadata
- */
-class AddAppMetadata extends Route {
+* @class AddDataSharing
+*/
+class AddDataSharing extends Route {
 	constructor() {
-		super('app/metadata/:key', 'ADD APP METADATA');
+		super('app/dataSharing', 'ADD Data Sharing');
 		this.verb = Route.Constants.Verbs.POST;
-		this.auth = Route.Constants.Auth.ADMIN;
+		this.auth = Route.Constants.Auth.SUPER;
 		this.permissions = Route.Constants.Permissions.ADD;
 
-		this._app = false;
+		// Fetch model
+		this.schema = new Schema(Model.AppDataSharing.schemaData);
+		this.model = Model.AppDataSharing;
 	}
 
 	_validate(req, res, token) {
 		return new Promise((resolve, reject) => {
-			Model.App.findById(req.appDetails._id).then((app) => {
-				if (!app) {
-					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
+			const validation = this.model.validate(req.body);
+			if (!validation.isValid) {
+				if (validation.missing.length > 0) {
+					this.log(`${this.schema.name}: Missing field: ${validation.missing[0]}`, Route.LogLevel.ERR, req.id);
+					return reject(new Helpers.RequestError(400, `${this.schema.name}: Missing field: ${validation.missing[0]}`));
 				}
-				try {
-					JSON.parse(req.body.value);
-				} catch (e) {
-					this.log(`ERROR: ${e.message}`, Route.LogLevel.ERR);
-					this.log(req.body.value, Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_json`));
+				if (validation.invalid.length > 0) {
+					this.log(`${this.schema.name}: Invalid value: ${validation.invalid[0]}`, Route.LogLevel.ERR, req.id);
+					return reject(new Helpers.RequestError(400, `${this.schema.name}: Invalid value: ${validation.invalid[0]}`));
 				}
 
-				this._app = app;
-				resolve(true);
-			});
+				this.log(`${this.schema.name}: Unhandled Error`, Route.LogLevel.ERR, req.id);
+				return reject(new Helpers.RequestError(400, `${this.schema.name}: Unhandled error.`));
+			}
+
+			// If we're not super then set the appId to be the current appId
+			if (!req.body._appId || token.authLevel < 3) {
+				req.body._appId = token._app;
+			}
+
+			this.model.isDuplicate(req.body)
+				.then((res) => {
+					if (res === true) {
+						this.log(`${this.schema.name}: Duplicate entity`, Route.LogLevel.ERR, req.id);
+						return reject(new Helpers.RequestError(400, `duplicate`));
+					}
+					resolve(true);
+				});
 		});
 	}
 
 	_exec(req, res, validate) {
-		return this._app.addOrUpdateMetadata(req.params.key, req.body.value)
-			.then((a) => a.details);
+		return new Promise((resolve, reject) => {
+			let _dataSharing = null;
+			this.model.add(req.body)
+				.then((res) => {
+					const dataSharing = (res.dataSharing) ? res.dataSharing : res;
+					this.log(`Added App Data Sharing ${dataSharing._id}`);
+
+					// TODO: Token shouldn't be released, an exchange should be done between buttress
+					// instances so that this isn't exposed.
+					if (res.token) {
+						return Object.assign(dataSharing, {
+							remoteAppToken: res.token.value,
+						});
+					}
+
+					return dataSharing;
+				})
+				.then((dataSharing) => {
+					_dataSharing = dataSharing;
+
+					if (dataSharing.remoteApp.token === null) return dataSharing;
+
+					// If the data sharing was setup with a token we'll try to call the remote app
+					// with the token to notify it off it's token.
+					const api = Buttress.new();
+					return api.init({
+						buttressUrl: dataSharing.remoteApp.endpoint,
+						apiPath: dataSharing.remoteApp.apiPath,
+						appToken: dataSharing.remoteApp.token,
+						allowUnauthorized: true, // Move along, nothing to see here...
+					})
+						.then(() => api.App.activateAppDataSharing({
+							token: dataSharing.remoteAppToken,
+						}))
+						.then((res) => {
+							if (!res) return;
+
+							// If we got the thumbs up from the other instance we can go ahead and activate
+							// the data sharing for this app.
+							return this.model.activate(dataSharing._id);
+						})
+						.then(() => _dataSharing.active = true)
+						.catch(reject);
+				})
+				.then(() => _dataSharing)
+				.then(resolve, reject);
+		});
 	}
 }
-routes.push(AddAppMetadata);
+routes.push(AddDataSharing);
 
 /**
- * @class UpdateAppMetadata
+ * @class UpdateAppDataSharingPolicy
  */
-class UpdateAppMetadata extends Route {
+class UpdateAppDataSharingPolicy extends Route {
 	constructor() {
-		super('app/metadata/:key', 'UPDATE APP METADATA');
+		super('app/dataSharing/:dataSharingId/policy', 'UPDATE App Data Sharing Policy');
 		this.verb = Route.Constants.Verbs.PUT;
 		this.auth = Route.Constants.Auth.ADMIN;
-		this.permissions = Route.Constants.Permissions.ADD;
+		this.permissions = Route.Constants.Permissions.WRITE;
 
-		this._app = false;
+		// Fetch model
+		this.schema = new Schema(Model.AppDataSharing.schemaData);
+		this.model = Model.AppDataSharing;
 	}
 
 	_validate(req, res, token) {
 		return new Promise((resolve, reject) => {
-			Model.App.findById(req.appDetails._id).then((app) => {
-				if (!app) {
-					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
-				}
-				if (app.findMetadata(req.params.key) === false) {
-					this.log('ERROR: Metadata does not exist', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `missing_metadata`));
-				}
-				try {
-					JSON.parse(req.body.value);
-				} catch (e) {
-					this.log(`ERROR: ${e.message}`, Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_json`));
-				}
+			if (!req.authApp) {
+				this.log('ERROR: No authenticated app', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(400, `no_authenticated_app`));
+			}
 
-				this._app = app;
-				resolve(true);
-			});
+			if (!req.params.dataSharingId) {
+				this.log('ERROR: No Data Sharing Id', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(400, `missing_data_sharing_id`));
+			}
+
+			// Lookup
+			this.model.exists(req.params.dataSharingId, {
+				'_appId': req.authApp._id,
+			})
+				.then((res) => {
+					if (res !== true) {
+						this.log(`${this.schema.name}: unknown data sharing`, Route.LogLevel.ERR, req.id);
+						return reject(new Helpers.RequestError(400, `unknown_data_sharing`));
+					}
+
+					resolve(true);
+				});
 		});
 	}
 
 	_exec(req, res, validate) {
-		return this._app.addOrUpdateMetadata(req.params.key, req.body.value);
+		return this.model.updatePolicy(req.authApp._id, req.params.dataSharingId, req.body)
+			.then(() => true);
 	}
 }
-routes.push(UpdateAppMetadata);
+routes.push(UpdateAppDataSharingPolicy);
 
 /**
- * @class GetAppMetadata
+ * @class activ
  */
-class GetAppMetadata extends Route {
+class ActivateAppDataSharing extends Route {
 	constructor() {
-		super('app/metadata/:key', 'GET APP METADATA');
-		this.verb = Route.Constants.Verbs.GET;
-		this.auth = Route.Constants.Auth.ADMIN;
-		this.permissions = Route.Constants.Permissions.GET;
+		super('app/dataSharing/activate', 'UPDATE Activate App Data Sharing');
+		this.verb = Route.Constants.Verbs.PUT;
+		this.auth = Route.Constants.Auth.USER;
+		this.permissions = Route.Constants.Permissions.WRITE;
 
-		this._metadata = null;
+		// Fetch model
+		this.schema = new Schema(Model.AppDataSharing.schemaData);
+		this.model = Model.AppDataSharing;
 	}
 
 	_validate(req, res, token) {
 		return new Promise((resolve, reject) => {
-			Logging.log(`AppID: ${req.appDetails._id}`, Route.LogLevel.DEBUG);
-			Model.App.findById(req.appDetails._id).then((app) => {
-				if (!app) {
-					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
-				}
-				this._metadata = app.findMetadata(req.params.key);
-				if (this._metadata === false) {
-					this.log('WARN: App Metadata Not Found', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `missing_metadata`));
-				}
+			if (!req.authApp) {
+				this.log('ERROR: No authenticated app', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(500, `no_authenticated_app`));
+			}
 
-				resolve(true);
-			});
+			if (token.type !== Model.Token.Constants.Type.DATA_SHARING) {
+				this.log('ERROR: invalid token type', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(401, `invalid_token_type`));
+			}
+
+			if (!req.body.token) {
+				this.log('ERROR: missing data sharing token', Route.LogLevel.ERR);
+				return reject(new Helpers.RequestError(400, `missing_data_token`));
+			}
+
+			this.model.findOne({
+				_tokenId: token._id,
+			})
+				.then((dataSharing) => {
+					if (!dataSharing) {
+						this.log(`ERROR: Unable to find dataSharing with token ${token._id}`, Route.LogLevel.ERR, req.id);
+						return reject(new Helpers.RequestError(500, `no_datasharing`));
+					}
+
+					resolve(dataSharing);
+				});
 		});
 	}
 
-	_exec(req, res, validate) {
-		return this._metadata.value;
+	_exec(req, res, dataSharing) {
+		return this.model.activate(dataSharing._id, req.body.token)
+			.then(() => true);
 	}
 }
-routes.push(GetAppMetadata);
+routes.push(ActivateAppDataSharing);
 
 /**
  * @type {*[]}

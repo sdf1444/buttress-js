@@ -12,7 +12,7 @@
  */
 
 const Crypto = require('crypto');
-const SchemaModel = require('../schemaModel');
+const SchemaModelMongoDB = require('../type/mongoDB');
 const ObjectId = require('mongodb').ObjectId;
 // const Shared = require('../shared');
 const Logging = require('../../logging');
@@ -20,10 +20,11 @@ const Logging = require('../../logging');
 /**
  * Constants
 */
-const type = ['app', 'user'];
+const type = ['app', 'user', 'dataSharing'];
 const Type = {
 	APP: type[0],
 	USER: type[1],
+	DATA_SHARING: type[2],
 };
 
 const authLevel = [0, 1, 2, 3];
@@ -34,7 +35,7 @@ const AuthLevel = {
 	SUPER: 3,
 };
 
-class TokenSchemaModel extends SchemaModel {
+class TokenSchemaModel extends SchemaModelMongoDB {
 	constructor(MongoDb) {
 		const schema = TokenSchemaModel.Schema;
 		super(MongoDb, schema);
@@ -65,7 +66,7 @@ class TokenSchemaModel extends SchemaModel {
 				},
 				value: {
 					__type: 'string',
-					__default: '',
+					__default: null,
 					__required: true,
 					__allowUpdate: true,
 				},
@@ -110,11 +111,19 @@ class TokenSchemaModel extends SchemaModel {
 				},
 				_app: {
 					__type: 'id',
+					__default: null,
 					__required: true,
 					__allowUpdate: false,
 				},
 				_user: {
 					__type: 'id',
+					__default: null,
+					__required: true,
+					__allowUpdate: false,
+				},
+				_appDataSharingId: {
+					__type: 'id',
+					__default: null,
 					__required: true,
 					__allowUpdate: false,
 				},

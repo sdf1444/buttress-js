@@ -15,8 +15,10 @@ const fs = require('fs');
 const Logging = require('../logging');
 const Sugar = require('sugar');
 const Schema = require('../schema');
-const SchemaModel = require('./schemaModel');
 const shortId = require('../helpers').shortId;
+
+const SchemaModelButtress = require('./type/buttress');
+const SchemaModelMongoDB = require('./type/mongoDB');
 
 /**
  * @param {string} model - name of the model to load
@@ -51,25 +53,26 @@ class Model {
 			const models = _getModels();
 			Logging.log(models, Logging.Constants.LogLevel.SILLY);
 			for (let x = 0; x < models.length; x++) {
-				this._initModel(models[x]);
+				this._initCoreModel(models[x]);
 			}
 			resolve();
 		});
 	}
 
-	initSchema(db) {
+	async initSchema(db) {
 		if (db) this.mongoDb = db;
 
-		return this.models.App.findAll().toArray()
-			.then((apps) => {
-				apps.forEach((app) => {
-					if (app.__schema) {
-						Schema.buildCollections(Schema.decode(app.__schema)).forEach((schemaData) => {
-							this._initSchemaModel(app, schemaData);
-						});
-					}
-				});
-			});
+		const apps = await this.models.App.findAll().toArray();
+
+		await apps.reduce(async (prev, app) => {
+			await prev;
+			if (!app || !app.__schema) return;
+
+			await Schema.buildCollections(Schema.decode(app.__schema)).reduce(async (prev, schema) => {
+				await prev;
+				await this._initSchemaModel(app, schema);
+			}, Promise.resolve());
+		}, Promise.resolve());
 	}
 
 	initModel(modelName) {
@@ -81,15 +84,16 @@ class Model {
 	 * @return {object} SchemaModel - initiated schema model built from passed schema object
 	 * @private
 	 */
-	_initModel(model) {
+	_initCoreModel(model) {
+		const name = Sugar.String.camelize(model);
 		const CoreSchemaModel = require(`./schema/${model.toLowerCase()}`);
 
-		if (!this.models[model]) {
-			this.models[model] = new CoreSchemaModel(this.mongoDb);
+		if (!this.models[name]) {
+			this.models[name] = new CoreSchemaModel(this.mongoDb);
 		}
 
-		this.__defineGetter__(model, () => this.models[model]);
-		return this.models[model];
+		this.__defineGetter__(name, () => this.models[name]);
+		return this.models[name];
 	}
 
 	/**
@@ -98,16 +102,39 @@ class Model {
 	 * @return {object} SchemaModel - initiated schema model built from passed schema object
 	 * @private
 	 */
-	_initSchemaModel(app, schemaData) {
+	async _initSchemaModel(app, schemaData) {
 		let name = `${schemaData.collection}`;
 		const appShortId = (app) ? shortId(app._id) : null;
 
-		if (appShortId) {
-			name = `${appShortId}-${schemaData.collection}`;
-		}
+		name = (appShortId) ? `${appShortId}-${schemaData.collection}` : name;
 
+		// Is data sharing
 		if (!this.models[name]) {
-			this.models[name] = new SchemaModel(this.mongoDb, schemaData, app);
+			if (schemaData.remote) {
+				const [dataSharingName, collection] = schemaData.remote.split('.');
+
+				if (!dataSharingName || !collection) {
+					Logging.logWarn(`Invalid Schema remote descriptor (${dataSharingName}.${collection})`);
+					return;
+				}
+
+				const dataSharing = await this.AppDataSharing.findOne({
+					'name': dataSharingName,
+					'_appId': app._id,
+				});
+
+				if (!dataSharing) {
+					Logging.logError(`Unable to find data sharing (${dataSharingName}.${collection}) ${app}`);
+					return;
+				}
+
+				this.models[name] = new SchemaModelButtress(schemaData, app, dataSharing);
+
+				this.__defineGetter__(name, () => this.models[name]);
+				return this.models[name];
+			} else {
+				this.models[name] = new SchemaModelMongoDB(this.mongoDb, schemaData, app);
+			}
 		}
 
 		this.__defineGetter__(name, () => this.models[name]);
@@ -126,7 +153,7 @@ function _getModels() {
 	for (let x = 0; x < filenames.length; x++) {
 		const file = filenames[x];
 		if (path.extname(file) === '.js') {
-			files.push(Sugar.String.capitalize(path.basename(file, '.js')));
+			files.push(path.basename(file, '.js'));
 		}
 	}
 	return files;

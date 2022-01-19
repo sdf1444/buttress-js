@@ -10,7 +10,7 @@
  *
  */
 
-// const Logging = require('../logging');
+const Logging = require('../logging');
 const Route = require('./route');
 const Model = require('../model');
 const Helpers = require('../helpers');
@@ -44,21 +44,26 @@ class GetList extends Route {
 		this.schema = new Schema(schema);
 		this.model = Model[schemaCollection];
 
+		Logging.logSilly(`Created route: ${this.name} for ${schemaCollection}`);
+
 		if (!this.model) {
 			throw new Error(`GetList Route missing model ${schemaCollection}`);
 		}
 	}
 
 	_validate(req, res, token) {
+		Logging.logTimer(`${this.name}:_validate:start`, req.timer, Logging.Constants.LogLevel.DEBUG, req.id);
 		let query = Promise.resolve({});
 		if (token.authLevel < 3) {
 			query = this.model.generateRoleFilterQuery(token, req.roles, Model);
 		}
 
+		Logging.logTimer(`${this.name}:_validate:end`, req.timer, Logging.Constants.LogLevel.DEBUG, req.id);
 		return query;
 	}
 
 	_exec(req, res, query) {
+		Logging.logTimer(`${this.name}:_validate:start`, req.timer, Logging.Constants.LogLevel.DEBUG, req.id);
 		return this.model.find(query, {}, true);
 	}
 }

@@ -174,6 +174,7 @@ module.exports.shortId = (id) => {
 	};
 
 	let output = '';
+	if (!id) return output;
 
 	const date = id.getTimestamp();
 	let time = date.getTime();
@@ -254,9 +255,12 @@ const __getFlattenedSchema = (schema) => {
 
 	const flattened = {};
 	const path = [];
-	for (const property in schema.properties) {
-		if (!{}.hasOwnProperty.call(schema.properties, property)) continue;
-		__buildFlattenedSchema(property, schema.properties, path, flattened);
+
+	if (schema.properties) {
+		for (const property in schema.properties) {
+			if (!{}.hasOwnProperty.call(schema.properties, property)) continue;
+			__buildFlattenedSchema(property, schema.properties, path, flattened);
+		}
 	}
 
 	return flattened;

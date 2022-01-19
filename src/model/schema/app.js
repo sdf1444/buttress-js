@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const crypto = require('crypto');
-const SchemaModel = require('../schemaModel');
+const SchemaModelMongoDB = require('../type/mongoDB');
 const ObjectId = require('mongodb').ObjectId;
 const Model = require('../');
 const Schema = require('../../schema');
@@ -33,7 +33,7 @@ const Type = {
 	BROWSER: type[3],
 };
 
-class AppSchemaModel extends SchemaModel {
+class AppSchemaModel extends SchemaModelMongoDB {
 	constructor(MongoDb) {
 		const schema = AppSchemaModel.Schema;
 		super(MongoDb, schema);
@@ -59,17 +59,6 @@ class AppSchemaModel extends SchemaModel {
 			extends: [],
 			properties: {
 				name: {
-					__type: 'string',
-					__default: '',
-					__allowUpdate: true,
-				},
-				type: {
-					__type: 'string',
-					__default: 'server',
-					__enum: type,
-					__allowUpdate: true,
-				},
-				domain: {
 					__type: 'string',
 					__default: '',
 					__allowUpdate: true,
@@ -111,6 +100,7 @@ class AppSchemaModel extends SchemaModel {
 			authLevel: body.authLevel,
 			permissions: body.permissions,
 			domain: body.domain,
+			apiPath: body.apiPath,
 		};
 		let _token = null;
 
@@ -208,34 +198,7 @@ class AppSchemaModel extends SchemaModel {
 	}
 
 	/**
-	 * @param {String} name - name of the data folder to create
-	 * @param {Boolean} isPublic - true for /public (which is available via the static middleware) otherwise /private
-	 * @return {String} - UID
-	 */
-	mkDataDir(name, isPublic) {
-		const uid = this.getPublicUID();
-		const baseName = `${Config.paths.appData}/${isPublic ? 'public' : 'private'}/${uid}`;
-
-		return new Promise((resolve, reject) => {
-			fs.mkdir(baseName, (err) => {
-				if (err && err.code !== 'EEXIST') {
-					reject(err);
-					return;
-				}
-				const dirName = `${baseName}/${name}`;
-				fs.mkdir(dirName, (err) => {
-					if (err && err.code !== 'EEXIST') {
-						reject(err);
-						return;
-					}
-					resolve();
-				});
-			});
-		});
-	}
-
-	/**
-	 * @return {String} - UID
+	 * @return {String} - UIDk
 	 */
 	getPublicUID() {
 		return this.genPublicUID(this.name, this._id);
@@ -254,37 +217,23 @@ class AppSchemaModel extends SchemaModel {
 	 * @return {String} - UID
 	 */
 	genPublicUID(name, id) {
-		const hash = crypto.createHash('sha512');
-		// Logging.log(`Create UID From: ${this.name}.${this.tokenValue}`, Logging.Constants.LogLevel.DEBUG);
-		hash.update(`${name}.${id}`);
-		const bytes = hash.digest();
+		// const hash = crypto.createHash('sha512');
+		// // Logging.log(`Create UID From: ${this.name}.${this.tokenValue}`, Logging.Constants.LogLevel.DEBUG);
+		// hash.update(`${name}.${id}`);
+		// const bytes = hash.digest();
 
-		const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-		const mask = 0x3d;
-		let uid = '';
+		// const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		// const mask = 0x3d;
+		// let uid = '';
 
-		for (let byte = 0; byte < 32; byte++) {
-			uid += chars[bytes[byte] & mask];
-		}
+		// for (let byte = 0; byte < 32; byte++) {
+		// 	uid += chars[bytes[byte] & mask];
+		// }
 
-		// Logging.log(`Got UID: ${uid}`, Logging.Constants.LogLevel.SILLY);
-		return uid;
+		// // Logging.log(`Got UID: ${uid}`, Logging.Constants.LogLevel.SILLY);
+		return id;
 	}
 }
-/**
- * Schema Virtual Methods
- */
-// schema.virtual('details').get(function() {
-//   return {
-//     id: this._id,
-//     name: this.name,
-//     type: this.type,
-//     token: this.tokenValue,
-//     owner: this.ownerDetails,
-//     publicUid: this.getPublicUID(),
-//     metadata: this.metadata.map(m => ({key: m.key, value: JSON.parse(m.value)}))
-//   };
-// });
 
 /**
  * Exports
