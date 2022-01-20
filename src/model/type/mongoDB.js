@@ -27,7 +27,7 @@ const SchemaModel = require('../schemaModel');
 
 class SchemaModelMongoDB extends SchemaModel {
 	constructor(MongoDb, schemaData, app) {
-    super(schemaData, app);
+		super(schemaData, app);
 
 		this.collectionName = `${schemaData.collection}`;
 
@@ -172,16 +172,11 @@ class SchemaModelMongoDB extends SchemaModel {
 			return results;
 		}
 
-		return new Promise((resolve) => {
-			this.collection.find(query, excludes)
-				.skip(skip)
-				.limit(limit)
-				.sort(sort)
-				.toArray((err, doc) => {
-					if (err) throw err;
-					resolve(doc);
-				});
-		});
+		// return new Promise((resolve) => {
+		return this.collection.find(query, excludes)
+			.skip(skip)
+			.limit(limit)
+			.sort(sort);
 	}
 
 	/**

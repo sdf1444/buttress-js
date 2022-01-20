@@ -334,7 +334,6 @@ class Route {
 	_broadcast(req, res, result, role, path, isSuper = false) {
 		Logging.logTimer('_broadcast:start', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
 		const isReadStream = result instanceof Stream.Readable;
-		const publicAppID = Model.App.genPublicUID(req.authApp.name, req.authApp._id);
 
 		let filter = null;
 		let permissions = {};
@@ -388,7 +387,7 @@ class Route {
 					timestamp: new Date(),
 					response: _result,
 					user: req.authUser ? req.authUser._id : '',
-					appPId: publicAppID ? publicAppID : '',
+					appAPIPath: req.authApp ? req.authApp.apiPath : '',
 					isSuper: isSuper,
 				});
 			} else {

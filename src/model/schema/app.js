@@ -198,40 +198,10 @@ class AppSchemaModel extends SchemaModelMongoDB {
 	}
 
 	/**
-	 * @return {String} - UIDk
-	 */
-	getPublicUID() {
-		return this.genPublicUID(this.name, this._id);
-	}
-
-	/**
 	 * @return {Promise} - resolves to the token
 	 */
 	getToken() {
 		return Model.Token.findOne({_id: this._token});
-	}
-
-	/**
-	 * @param {String} name - name of application
-	 * @param {String} id - application id
-	 * @return {String} - UID
-	 */
-	genPublicUID(name, id) {
-		// const hash = crypto.createHash('sha512');
-		// // Logging.log(`Create UID From: ${this.name}.${this.tokenValue}`, Logging.Constants.LogLevel.DEBUG);
-		// hash.update(`${name}.${id}`);
-		// const bytes = hash.digest();
-
-		// const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-		// const mask = 0x3d;
-		// let uid = '';
-
-		// for (let byte = 0; byte < 32; byte++) {
-		// 	uid += chars[bytes[byte] & mask];
-		// }
-
-		// // Logging.log(`Got UID: ${uid}`, Logging.Constants.LogLevel.SILLY);
-		return id;
 	}
 }
 
