@@ -10,7 +10,7 @@
  *
  */
 
-const Buttress = require('buttress-js-api');
+const Buttress = require('@buttress/api');
 
 const Route = require('../route');
 const Model = require('../../model');

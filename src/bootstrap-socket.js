@@ -39,7 +39,6 @@ class BootstrapSocket {
 		this.workers = [];
 
 		this.__apps = [];
-		this.__tokens = [];
 		this.__namespace = {};
 
 		this._dataShareSockets = {};
@@ -62,7 +61,7 @@ class BootstrapSocket {
 			.then(() => cluster.isMaster);
 	}
 
-	__initMaster(db) {
+	async __initMaster(db) {
 		const nrp = new NRP(Config.redis);
 
 		const redisClient = createClient(Config.redis);
@@ -73,70 +72,49 @@ class BootstrapSocket {
 			nrp.on('activity', (data) => this.__onActivityReceived(data));
 		}
 
-		return this.__initMongoConnect()
-			.then((db) => {
-			// Load Apps
-				return new Promise((resolve, reject) => {
-					Model.App.findAll().toArray((err, _apps) => {
-						if (err) reject(err);
-						resolve(this.__apps = _apps);
-					});
-				});
-			})
-			.then(() => {
-			// Load Tokens
-				return new Promise((resolve, reject) => {
-					Model.Token.findAll().toArray((err, _tokens) => {
-						if (err) reject(err);
-						resolve(this.__tokens = _tokens);
-					});
-				});
-			})
-			.then(() => {
-				this.__namespace['stats'] = {
-					emitter: this.emitter.of(`/stats`),
-					sequence: {
-						super: 0,
-						global: 0,
-					},
-				};
+		await this.__initMongoConnect();
 
-				// Spawn worker processes, pass through build app objects
-				this.__apps.map((app) => {
-					const token = this.__tokens.find((t) => {
-						return app._token && t._id.equals(app._token);
-					});
-					if (!token) {
-						Logging.logWarn(`No Token found for ${app.name}`);
-						return null;
-					}
+		const apps = await Model.App.findAll();
+		const tokens = await Model.Token.findAll();
 
-					app.token = token;
+		this.__namespace['stats'] = {
+			emitter: this.emitter.of(`/stats`),
+			sequence: {
+				super: 0,
+				global: 0,
+			},
+		};
 
-					const isSuper = token.authLevel > 2;
-					Logging.log(`Name: ${app.name}, App ID: ${app._id}, Path: /${app.apiPath}`);
+		// Spawn worker processes, pass through build app objects
+		while (await apps.hasNext()) {
+			const app = await apps.next();
+			if (!app._token) return Logging.logWarn(`App with no token`);
 
-					this.__namespace[app.apiPath] = {
-						emitter: this.emitter.of(`/${app.apiPath}`),
-						sequence: {
-							super: 0,
-							global: 0,
-						},
-					};
-					Logging.logDebug(`[${app.apiPath}]: Created Namespace for ${app.name}, ${(isSuper) ? 'SUPER' : ''}`);
+			const token = await Model.Token.findOne({_id: app._token});
+			if (!token) return Logging.logWarn(`No Token found for ${app.name}`);
 
-					if (isSuper) {
-						this.__superApps.push(app.apiPath);
-					}
+			const isSuper = token.authLevel > 2;
 
-					return app;
-				}).filter((app) => app);
+			this.__namespace[app.apiPath] = {
+				emitter: this.emitter.of(`/${app.apiPath}`),
+				sequence: {
+					super: 0,
+					global: 0,
+				},
+			};
 
-				this.__spawnWorkers({
-					apps: this.__apps,
-					tokens: this.__tokens,
-				});
-			});
+			if (isSuper) {
+				this.__superApps.push(app.apiPath);
+			}
+
+			Logging.log(`${(isSuper) ? 'SUPER' : 'APP'} Name: ${app.name}, App ID: ${app._id}, Path: /${app.apiPath}`);
+
+			return app;
+		}
+
+		this.__spawnWorkers({
+			apps: this.__apps,
+		});
 	}
 
 	async __initWorker() {
@@ -212,25 +190,25 @@ class BootstrapSocket {
 
 		// Open up data sharing connections
 		Logging.logSilly(`Setting up data sharing connections`);
-		await Model.AppDataSharing.find({
-			active: true,
-		})
-			.forEach((dataShare) => {
-				const url = `${dataShare.remoteApp.endpoint}/${dataShare.remoteApp.apiPath}`;
-				Logging.logSilly(`Attempting to connect to ${url}`);
-				this._dataShareSockets[dataShare.name] = sioClient(url, {
-					query: {
-						token: dataShare.remoteApp.token,
-					},
-					rejectUnauthorized: false,
-				});
-				this._dataShareSockets[dataShare.name].on('connect', () => {
-					Logging.logSilly(`Connected to ${url}`);
-				});
-				this._dataShareSockets[dataShare.name].on('disconnect', () => {
-					Logging.logSilly(`Disconnected from ${url}`);
-				});
-			});
+		// await Model.AppDataSharing.find({
+		// 	active: true,
+		// })
+		// 	.forEach((dataShare) => {
+		// 		const url = `${dataShare.remoteApp.endpoint}/${dataShare.remoteApp.apiPath}`;
+		// 		Logging.logSilly(`Attempting to connect to ${url}`);
+		// 		this._dataShareSockets[dataShare.name] = sioClient(url, {
+		// 			query: {
+		// 				token: dataShare.remoteApp.token,
+		// 			},
+		// 			rejectUnauthorized: false,
+		// 		});
+		// 		this._dataShareSockets[dataShare.name].on('connect', () => {
+		// 			Logging.logSilly(`Connected to ${url}`);
+		// 		});
+		// 		this._dataShareSockets[dataShare.name].on('disconnect', () => {
+		// 			Logging.logSilly(`Disconnected from ${url}`);
+		// 		});
+		// 	});
 		// if (!app) {
 		// 	Logging.logDebug(`Invalid app, closing connection: ${socket.id}`);
 		// 	return next('invalid-app');
@@ -258,7 +236,7 @@ class BootstrapSocket {
 
 		this.__namespace['stats'].emitter.emit('activity', 1);
 
-		Logging.logSilly(`[${apiPath}][${data.role}][${data.verb}]  ${data.path}`);
+		Logging.logSilly(`[${apiPath}][${data.role}][${data.verb}] ${data.path}`);
 
 		// Super apps?
 		if (data.isSuper) {
@@ -304,7 +282,7 @@ class BootstrapSocket {
 		}
 	}
 
-	__spawnWorkers(appTokens) {
+	__spawnWorkers() {
 		Logging.log(`Spawning ${this.processes} Socket Workers`);
 
 		for (let x = 0; x < this.processes; x++) {

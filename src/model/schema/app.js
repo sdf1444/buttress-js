@@ -203,6 +203,15 @@ class AppSchemaModel extends SchemaModelMongoDB {
 	getToken() {
 		return Model.Token.findOne({_id: this._token});
 	}
+
+	/**
+	 * @param {App} entity - entity object to be deleted
+	 * @return {Promise} - returns a promise that is fulfilled when the database request is completed
+	 */
+	rm(entity) {
+		// Clean up collections, tokens, etc.
+		return super.rm(entity);
+	}
 }
 
 /**

@@ -11,7 +11,7 @@
  *
  */
 
-const Buttress = require('buttress-js-api');
+const Buttress = require('@buttress/api');
 
 const SchemaModel = require('../schemaModel');
 
