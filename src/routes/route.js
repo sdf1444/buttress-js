@@ -388,6 +388,7 @@ class Route {
 					response: _result,
 					user: req.authUser ? req.authUser._id : '',
 					appAPIPath: req.authApp ? req.authApp.apiPath : '',
+					appId: req.authApp ? req.authApp._id : '',
 					isSuper: isSuper,
 				});
 			} else {

@@ -70,6 +70,10 @@ class BootstrapSocket {
 		if (this.isPrimary) {
 			Logging.logDebug(`Primary Master`);
 			nrp.on('activity', (data) => this.__onActivity(data));
+			nrp.on('dataShare:activated', async (data) => {
+				const dataShare = await Model.AppDataSharing.findById(data.appDataSharingId);
+				await this.__createDataShareConnection(dataShare);
+			});
 		}
 
 		await this.__initMongoConnect();
@@ -92,12 +96,23 @@ class BootstrapSocket {
 			await this.__createAppNamespace(app);
 		}
 
+		// This should be distributed across instances
+		if (this.isPrimary) {
+			Logging.logSilly(`Setting up data sharing connections`);
+			await Model.AppDataSharing.find({
+				active: true,
+			})
+				.forEach((dataShare) => this.__createDataShareConnection(dataShare));
+		}
+
 		this.__spawnWorkers({
 			apps: this.__apps,
 		});
 	}
 
 	async __initWorker() {
+		const nrp = new NRP(Config.redis);
+
 		const app = new Express();
 		const server = app.listen(0, 'localhost');
 		const io = sio(server, {
@@ -147,16 +162,30 @@ class BootstrapSocket {
 
 			if (token.type === 'dataSharing') {
 				Logging.logDebug(`Fetching data share with tokenId: ${token._id}`);
-				const dataShare = await Model.AppDataSharing.findOne({_tokenId: new ObjectId(token._id)});
+				const dataShare = await Model.AppDataSharing.findOne({
+					_tokenId: new ObjectId(token._id),
+					active: true,
+				});
 				if (!dataShare) {
 					Logging.logWarn(`Invalid data share, closing connection: ${socket.id}`);
-					return next('invalid-app');
+					return next('invalid-data-share');
 				}
 
-				socket.join(dataShare.name);
+				// Emit this activity to our instance.
+				socket.on('share', (data) => {
+					// Map the app data to our path
+					data.appId = app._id;
+					data.appAPIPath = app.apiPath;
+
+					data.fromDataShare = dataShare._id;
+
+					nrp.emit('activity', data);
+				});
+
+				Logging.log(`[${apiPath}][DataShare] Connected ${socket.id} to room ${dataShare.name}`);
 			} else if (token.role) {
 				socket.join(token.role);
-				Logging.log(`[${apiPath}][${token.role}] Connected ${socket.id}`);
+				Logging.log(`[${apiPath}][${token.role}] Connected ${socket.id} to room ${token.role}`);
 			} else {
 				Logging.log(`[${apiPath}][Global] Connected ${socket.id}`);
 			}
@@ -167,28 +196,6 @@ class BootstrapSocket {
 
 			next();
 		});
-
-		// Open up data sharing connections
-		Logging.logSilly(`Setting up data sharing connections`);
-		await Model.AppDataSharing.find({
-			active: true,
-		})
-			.forEach((dataShare) => {
-				const url = `${dataShare.remoteApp.endpoint}/${dataShare.remoteApp.apiPath}`;
-				Logging.logSilly(`Attempting to connect to ${url}`);
-				this._dataShareSockets[dataShare.name] = sioClient(url, {
-					query: {
-						token: dataShare.remoteApp.token,
-					},
-					rejectUnauthorized: false,
-				});
-				this._dataShareSockets[dataShare.name].on('connect', () => {
-					Logging.logSilly(`Connected to ${url}`);
-				});
-				this._dataShareSockets[dataShare.name].on('disconnect', () => {
-					Logging.logSilly(`Disconnected from ${url}`);
-				});
-			});
 
 		process.on('message', (message, input) => {
 			if (message === 'buttress:connection') {
@@ -212,7 +219,7 @@ class BootstrapSocket {
 
 		this.__namespace['stats'].emitter.emit('activity', 1);
 
-		Logging.logSilly(`[${apiPath}][${data.role}][${data.verb}] ${data.path}`);
+		Logging.logSilly(`[${apiPath}][${data.role}][${data.verb}] activity in on ${data.path}`);
 
 		// Super apps?
 		if (data.isSuper) {
@@ -231,6 +238,10 @@ class BootstrapSocket {
 		if (data.broadcast === false) {
 			Logging.logDebug(`[${apiPath}][${data.role}][${data.verb}] ${data.path} - Early out as it isn't public.`);
 			return;
+		}
+
+		if (data.appId && this._dataShareSockets[data.appId] && !data.fromDataShare) {
+			this._dataShareSockets[data.appId].forEach((sock) => sock.emit('share', data));
 		}
 
 		// Broadcast on requested channel
@@ -264,11 +275,6 @@ class BootstrapSocket {
 				sequence: this.__namespace[apiPath].sequence.global,
 			});
 		}
-	}
-
-	__onSchemaUpdate(data) {
-		console.log('__onSchemaUpdate', data);
-		// Fetch the app and update
 	}
 
 	__spawnWorkers() {
@@ -323,6 +329,31 @@ class BootstrapSocket {
 		}
 
 		Logging.log(`${(isSuper) ? 'SUPER' : 'APP'} Name: ${app.name}, App ID: ${app._id}, Path: /${app.apiPath}`);
+	}
+
+	async __createDataShareConnection(dataShare) {
+		const url = `${dataShare.remoteApp.endpoint}/${dataShare.remoteApp.apiPath}`;
+		Logging.logSilly(`Attempting to connect to ${url}`);
+		if (!this._dataShareSockets[dataShare._appId]) {
+			this._dataShareSockets[dataShare._appId] = [];
+		}
+
+		const socket = sioClient(url, {
+			query: {
+				token: dataShare.remoteApp.token,
+			},
+			allowEIO3: true,
+			rejectUnauthorized: false,
+		});
+
+		this._dataShareSockets[dataShare._appId].push(socket);
+
+		socket.on('connect', () => {
+			Logging.logSilly(`Connected to ${url} with id ${socket.id}`);
+		});
+		socket.on('disconnect', () => {
+			Logging.logSilly(`Disconnected from ${url} with id ${socket.id}`);
+		});
 	}
 
 	async __nativeMongoConnect() {
