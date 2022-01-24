@@ -221,6 +221,13 @@ class SchemaModelMongoDB extends SchemaModel {
 	count(query) {
 		return this.collection.countDocuments(query);
 	}
+
+	/**
+	 * @return {Promise}
+	 */
+	 drop() {
+		return this.collection.drop();
+	}
 }
 
 module.exports = SchemaModelMongoDB;

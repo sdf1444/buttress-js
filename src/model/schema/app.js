@@ -11,8 +11,6 @@
  *
  */
 
-const fs = require('fs');
-const crypto = require('crypto');
 const SchemaModelMongoDB = require('../type/mongoDB');
 const ObjectId = require('mongodb').ObjectId;
 const Model = require('../');
@@ -21,6 +19,8 @@ const Logging = require('../../logging');
 const Config = require('node-env-obj')();
 const NRP = require('node-redis-pubsub');
 const nrp = new NRP(Config.redis);
+
+const shortId = require('../../helpers').shortId;
 
 /**
  * Constants
@@ -116,6 +116,7 @@ class AppSchemaModel extends SchemaModelMongoDB {
 				_token = token;
 
 				nrp.emit('app-routes:bust-cache', {});
+				nrp.emit('app-schema:updated', {appId: app.id});
 
 				return super.add(app, {_token: token._id});
 			})
@@ -208,8 +209,22 @@ class AppSchemaModel extends SchemaModelMongoDB {
 	 * @param {App} entity - entity object to be deleted
 	 * @return {Promise} - returns a promise that is fulfilled when the database request is completed
 	 */
-	rm(entity) {
-		// Clean up collections, tokens, etc.
+	async rm(entity) {
+		await Model.AppDataSharing.rmAll({_appId: entity._id});
+
+		const appShortId = (entity) ? shortId(entity._id) : null;
+
+		// Delete Schema collections
+		if (appShortId) {
+			const appSchemaModels = Object.keys(Model.models).filter((k) => k.indexOf(appShortId) !== -1);
+			for (let i = 0; i < appSchemaModels.length; i++) {
+				if (Model[appSchemaModels[i]] && Model[appSchemaModels[i]].drop) {
+					await Model[appSchemaModels[i]].drop();
+					delete Model[appSchemaModels[i]];
+				}
+			}
+		}
+
 		return super.rm(entity);
 	}
 }

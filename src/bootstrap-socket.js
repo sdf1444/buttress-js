@@ -69,13 +69,12 @@ class BootstrapSocket {
 
 		if (this.isPrimary) {
 			Logging.logDebug(`Primary Master`);
-			nrp.on('activity', (data) => this.__onActivityReceived(data));
+			nrp.on('activity', (data) => this.__onActivity(data));
 		}
 
 		await this.__initMongoConnect();
 
 		const apps = await Model.App.findAll();
-		const tokens = await Model.Token.findAll();
 
 		this.__namespace['stats'] = {
 			emitter: this.emitter.of(`/stats`),
@@ -90,26 +89,7 @@ class BootstrapSocket {
 			const app = await apps.next();
 			if (!app._token) return Logging.logWarn(`App with no token`);
 
-			const token = await Model.Token.findOne({_id: app._token});
-			if (!token) return Logging.logWarn(`No Token found for ${app.name}`);
-
-			const isSuper = token.authLevel > 2;
-
-			this.__namespace[app.apiPath] = {
-				emitter: this.emitter.of(`/${app.apiPath}`),
-				sequence: {
-					super: 0,
-					global: 0,
-				},
-			};
-
-			if (isSuper) {
-				this.__superApps.push(app.apiPath);
-			}
-
-			Logging.log(`${(isSuper) ? 'SUPER' : 'APP'} Name: ${app.name}, App ID: ${app._id}, Path: /${app.apiPath}`);
-
-			return app;
+			await this.__createAppNamespace(app);
 		}
 
 		this.__spawnWorkers({
@@ -190,29 +170,25 @@ class BootstrapSocket {
 
 		// Open up data sharing connections
 		Logging.logSilly(`Setting up data sharing connections`);
-		// await Model.AppDataSharing.find({
-		// 	active: true,
-		// })
-		// 	.forEach((dataShare) => {
-		// 		const url = `${dataShare.remoteApp.endpoint}/${dataShare.remoteApp.apiPath}`;
-		// 		Logging.logSilly(`Attempting to connect to ${url}`);
-		// 		this._dataShareSockets[dataShare.name] = sioClient(url, {
-		// 			query: {
-		// 				token: dataShare.remoteApp.token,
-		// 			},
-		// 			rejectUnauthorized: false,
-		// 		});
-		// 		this._dataShareSockets[dataShare.name].on('connect', () => {
-		// 			Logging.logSilly(`Connected to ${url}`);
-		// 		});
-		// 		this._dataShareSockets[dataShare.name].on('disconnect', () => {
-		// 			Logging.logSilly(`Disconnected from ${url}`);
-		// 		});
-		// 	});
-		// if (!app) {
-		// 	Logging.logDebug(`Invalid app, closing connection: ${socket.id}`);
-		// 	return next('invalid-app');
-		// }
+		await Model.AppDataSharing.find({
+			active: true,
+		})
+			.forEach((dataShare) => {
+				const url = `${dataShare.remoteApp.endpoint}/${dataShare.remoteApp.apiPath}`;
+				Logging.logSilly(`Attempting to connect to ${url}`);
+				this._dataShareSockets[dataShare.name] = sioClient(url, {
+					query: {
+						token: dataShare.remoteApp.token,
+					},
+					rejectUnauthorized: false,
+				});
+				this._dataShareSockets[dataShare.name].on('connect', () => {
+					Logging.logSilly(`Connected to ${url}`);
+				});
+				this._dataShareSockets[dataShare.name].on('disconnect', () => {
+					Logging.logSilly(`Disconnected from ${url}`);
+				});
+			});
 
 		process.on('message', (message, input) => {
 			if (message === 'buttress:connection') {
@@ -227,7 +203,7 @@ class BootstrapSocket {
 		process.send('workerInitiated');
 	}
 
-	__onActivityReceived(data) {
+	__onActivity(data) {
 		const apiPath = data.appAPIPath;
 
 		if (!this.emitter) {
@@ -259,7 +235,15 @@ class BootstrapSocket {
 
 		// Broadcast on requested channel
 		if (!this.__namespace[apiPath]) {
-			throw new Error('Trying to access namespace that doesn\'t exist');
+			// Init the namespace
+			// throw new Error('Trying to access namespace that doesn\'t exist');
+			this.__namespace[apiPath] = {
+				emitter: this.emitter.of(`/${apiPath}`),
+				sequence: {
+					super: 0,
+					global: 0,
+				},
+			};
 		}
 
 		if (data.role) {
@@ -280,6 +264,11 @@ class BootstrapSocket {
 				sequence: this.__namespace[apiPath].sequence.global,
 			});
 		}
+	}
+
+	__onSchemaUpdate(data) {
+		console.log('__onSchemaUpdate', data);
+		// Fetch the app and update
 	}
 
 	__spawnWorkers() {
@@ -311,12 +300,37 @@ class BootstrapSocket {
 		return Number(s) % spread;
 	}
 
+	async __createAppNamespace(app) {
+		if (this.__namespace[app.apiPath]) {
+			return Logging.logDebug(`Namespace already created: ${app.name}`);
+		}
+
+		const token = await Model.Token.findOne({_id: app._token});
+		if (!token) return Logging.logWarn(`No Token found for ${app.name}`);
+
+		const isSuper = token.authLevel > 2;
+
+		this.__namespace[app.apiPath] = {
+			emitter: this.emitter.of(`/${app.apiPath}`),
+			sequence: {
+				super: 0,
+				global: 0,
+			},
+		};
+
+		if (isSuper) {
+			this.__superApps.push(app.apiPath);
+		}
+
+		Logging.log(`${(isSuper) ? 'SUPER' : 'APP'} Name: ${app.name}, App ID: ${app._id}, Path: /${app.apiPath}`);
+	}
+
 	async __nativeMongoConnect() {
 		const dbName = `${Config.app.code}-${Config.env}`;
 		const mongoUrl = `mongodb://${Config.mongoDb.url}`;
 		Logging.logDebug(`Attempting connection to ${mongoUrl}`);
 
-		const client = await MongoClient.connect(mongoUrl, Config.mongoDb.options)
+		const client = await MongoClient.connect(mongoUrl, Config.mongoDb.options);
 
 		return await client.db(dbName);
 	}
