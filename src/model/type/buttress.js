@@ -33,15 +33,21 @@ class SchemaModelButtress extends SchemaModel {
 
 		this.buttress = Buttress.new();
 
-		this.buttress.init({
-			buttressUrl: this.endpoint,
-			appToken: this.token,
-			apiPath: this.apiPath,
-			allowUnauthorized: true, // WUT!?
-		})
-			.then(() => {
-				this.collection = this.buttress.getCollection(collection);
-			});
+		// Hack - Give a little time for another instance to get up to speed
+		// before trying to init
+
+		// TOOD: Handle the case we're another instance isn't available
+		setTimeout(() => {
+			this.buttress.init({
+				buttressUrl: this.endpoint,
+				appToken: this.token,
+				apiPath: this.apiPath,
+				allowUnauthorized: true, // WUT!?
+			})
+				.then(() => {
+					this.collection = this.buttress.getCollection(collection);
+				});
+		}, 500);
 	}
 
 	/**
