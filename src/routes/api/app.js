@@ -374,7 +374,7 @@ class AddDataSharing extends Route {
 	constructor() {
 		super('app/dataSharing', 'ADD Data Sharing');
 		this.verb = Route.Constants.Verbs.POST;
-		this.auth = Route.Constants.Auth.SUPER;
+		this.auth = Route.Constants.Auth.ADMIN;
 		this.permissions = Route.Constants.Permissions.ADD;
 
 		// Fetch model
