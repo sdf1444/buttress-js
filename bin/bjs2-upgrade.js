@@ -11,11 +11,14 @@
  *
  */
 
+const env = (process.env.ENV_FILE) ? process.env.ENV_FILE : process.env.NODE_ENV;
+
 const program = require('commander');
 const MongoClient = require('mongodb').MongoClient;
 // const ObjectId = require('mongodb').ObjectId;
 
 const Config = require('node-env-obj')({
+	envFile: `.${env}.env`,
 	envPath: '../',
 	configPath: '../src',
 });
