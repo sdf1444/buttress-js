@@ -206,7 +206,7 @@ class Route {
 
 			Logging.logTimer(`_respond:start-stream`, req.timer, Logging.Constants.LogLevel.DEBUG, req.id);
 
-			const stream = result.stream();
+			const stream = result.clone().stream();
 			stream.once('end', () => {
 				// Logging.logTimerException(`PERF: STREAM DONE: ${this.path}`, req.timer, 0.05, req.id);
 				Logging.logTimer(`_respond:end-stream`, req.timer, Logging.Constants.LogLevel.DEBUG, req.id);
@@ -333,8 +333,13 @@ class Route {
 	 */
 	_broadcast(req, res, result, role, path, isSuper = false) {
 		Logging.logTimer('_broadcast:start', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
-		const isReadStream = result instanceof Stream.Readable;
-		const publicAppID = Model.App.genPublicUID(req.authApp.name, req.authApp._id);
+		let broadcastResult = result;
+
+		if (Helpers.isCursor(result)) {
+			broadcastResult = result.clone().stream();
+		}
+
+		const isReadStream = broadcastResult instanceof Stream.Readable;
 
 		let filter = null;
 		let permissions = {};
@@ -388,7 +393,8 @@ class Route {
 					timestamp: new Date(),
 					response: _result,
 					user: req.authUser ? req.authUser._id : '',
-					appPId: publicAppID ? publicAppID : '',
+					appAPIPath: req.authApp ? req.authApp.apiPath : '',
+					appId: req.authApp ? req.authApp._id : '',
 					isSuper: isSuper,
 				});
 			} else {
@@ -397,14 +403,14 @@ class Route {
 		};
 
 		if (isReadStream) {
-			result.on('data', (data) => {
+			broadcastResult.on('data', (data) => {
 				emit(Shared.prepareSchemaResult(data, dataDisposition, filter, permissions));
 			});
 			Logging.logTimer('_broadcast:end-stream', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
 			return;
 		}
 
-		emit(Shared.prepareSchemaResult(result, dataDisposition, filter, permissions));
+		emit(Shared.prepareSchemaResult(broadcastResult, dataDisposition, filter, permissions));
 		Logging.logTimer('_broadcast:end', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
 	}
 

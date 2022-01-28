@@ -13,17 +13,22 @@ const os = require('os');
 const cluster = require('cluster');
 const net = require('net');
 const Express = require('express');
-const sio = require('socket.io');
 const {createClient} = require('redis');
+
+const sio = require('socket.io');
+const sioClient = require('socket.io-client');
 const redisAdapter = require('@socket.io/redis-adapter');
 const {Emitter} = require('@socket.io/redis-emitter');
 
-const Config = require('node-env-obj')();
-const Model = require('./model');
-const Logging = require('./logging');
 const MongoClient = require('mongodb').MongoClient;
 const ObjectId = require('mongodb').ObjectId;
+
 const NRP = require('node-redis-pubsub');
+
+const Config = require('node-env-obj')();
+
+const Model = require('./model');
+const Logging = require('./logging');
 
 class BootstrapSocket {
 	constructor() {
@@ -34,8 +39,9 @@ class BootstrapSocket {
 		this.workers = [];
 
 		this.__apps = [];
-		this.__tokens = [];
 		this.__namespace = {};
+
+		this._dataShareSockets = {};
 
 		this.__superApps = [];
 
@@ -55,7 +61,7 @@ class BootstrapSocket {
 			.then(() => cluster.isMaster);
 	}
 
-	__initMaster(db) {
+	async __initMaster(db) {
 		const nrp = new NRP(Config.redis);
 
 		const redisClient = createClient(Config.redis);
@@ -63,77 +69,50 @@ class BootstrapSocket {
 
 		if (this.isPrimary) {
 			Logging.logDebug(`Primary Master`);
-			nrp.on('activity', (data) => this.__onActivityReceived(data));
+			nrp.on('activity', (data) => this.__onActivity(data));
+			nrp.on('dataShare:activated', async (data) => {
+				const dataShare = await Model.AppDataSharing.findById(data.appDataSharingId);
+				await this.__createDataShareConnection(dataShare);
+			});
 		}
 
-		return this.__initMongoConnect()
-			.then((db) => {
-			// Load Apps
-				return new Promise((resolve, reject) => {
-					Model.App.findAll().toArray((err, _apps) => {
-						if (err) reject(err);
-						resolve(this.__apps = _apps);
-					});
-				});
+		await this.__initMongoConnect();
+
+		const apps = await Model.App.findAll();
+
+		this.__namespace['stats'] = {
+			emitter: this.emitter.of(`/stats`),
+			sequence: {
+				super: 0,
+				global: 0,
+			},
+		};
+
+		// Spawn worker processes, pass through build app objects
+		while (await apps.hasNext()) {
+			const app = await apps.next();
+			if (!app._token) return Logging.logWarn(`App with no token`);
+
+			await this.__createAppNamespace(app);
+		}
+
+		// This should be distributed across instances
+		if (this.isPrimary) {
+			Logging.logSilly(`Setting up data sharing connections`);
+			await Model.AppDataSharing.find({
+				active: true,
 			})
-			.then(() => {
-			// Load Tokens
-				return new Promise((resolve, reject) => {
-					Model.Token.findAll().toArray((err, _tokens) => {
-						if (err) reject(err);
-						resolve(this.__tokens = _tokens);
-					});
-				});
-			})
-			.then(() => {
-				this.__namespace['stats'] = {
-					emitter: this.emitter.of(`/stats`),
-					sequence: {
-						super: 0,
-						global: 0,
-					},
-				};
+				.forEach((dataShare) => this.__createDataShareConnection(dataShare));
+		}
 
-				// Spawn worker processes, pass through build app objects
-				this.__apps.map((app) => {
-					const token = this.__tokens.find((t) => {
-						return app._token && t._id.equals(app._token);
-					});
-					if (!token) {
-						Logging.logWarn(`No Token found for ${app.name}`);
-						return null;
-					}
-
-					app.token = token;
-					app.publicId = Model.App.genPublicUID(app.name, app._id);
-
-					const isSuper = token.authLevel > 2;
-					Logging.log(`Name: ${app.name}, App ID: ${app._id}, Public ID: ${app.publicId}`);
-
-					this.__namespace[app.publicId] = {
-						emitter: this.emitter.of(`/${app.publicId}`),
-						sequence: {
-							super: 0,
-							global: 0,
-						},
-					};
-					Logging.logDebug(`[${app.publicId}]: Created Namespace for ${app.name}, ${(isSuper) ? 'SUPER' : ''}`);
-
-					if (isSuper) {
-						this.__superApps.push(app.publicId);
-					}
-
-					return app;
-				}).filter((app) => app);
-
-				this.__spawnWorkers({
-					apps: this.__apps,
-					tokens: this.__tokens,
-				});
-			});
+		this.__spawnWorkers({
+			apps: this.__apps,
+		});
 	}
 
 	async __initWorker() {
+		const nrp = new NRP(Config.redis);
+
 		const app = new Express();
 		const server = app.listen(0, 'localhost');
 		const io = sio(server, {
@@ -147,7 +126,6 @@ class BootstrapSocket {
 				credentials: true,
 			},
 		});
-		const namespace = [];
 
 		await this.__initMongoConnect();
 
@@ -163,35 +141,57 @@ class BootstrapSocket {
 			});
 		});
 
-		console.log('Creating Dynamic listener');
-		const appNamespaces = io.of(/^\/[a-f\d]{24}$/i);
-		appNamespaces.use(async (socket, next) => {
-			const publicId = socket.nsp.name.substring(1);
+		Logging.logSilly(`Listening on app namespaces`);
+		io.of(/^\/[a-z\d-]+$/i).use(async (socket, next) => {
+			const apiPath = socket.nsp.name.substring(1);
 			const rawToken = socket.handshake.query.token;
 
 			Logging.logDebug(`Fetching token with value: ${rawToken}`);
 			const token = await Model.Token.findOne({value: rawToken});
 			if (!token) {
-				Logging.logDebug(`Invalid token, closing connection: ${socket.id}`);
+				Logging.logWarn(`Invalid token, closing connection: ${socket.id}`);
 				return next('invalid-token');
 			}
 
-			Logging.logDebug(`Fetching app with publicId: ${publicId}`);
-			const app = await Model.App.findOne({_id: new ObjectId(publicId)});
+			Logging.logDebug(`Fetching app with apiPath: ${apiPath}`);
+			const app = await Model.App.findOne({apiPath: apiPath});
 			if (!app) {
-				Logging.logDebug(`Invalid app, closing connection: ${socket.id}`);
+				Logging.logWarn(`Invalid app, closing connection: ${socket.id}`);
 				return next('invalid-app');
 			}
 
-			if (token.role) {
+			if (token.type === 'dataSharing') {
+				Logging.logDebug(`Fetching data share with tokenId: ${token._id}`);
+				const dataShare = await Model.AppDataSharing.findOne({
+					_tokenId: new ObjectId(token._id),
+					active: true,
+				});
+				if (!dataShare) {
+					Logging.logWarn(`Invalid data share, closing connection: ${socket.id}`);
+					return next('invalid-data-share');
+				}
+
+				// Emit this activity to our instance.
+				socket.on('share', (data) => {
+					// Map the app data to our path
+					data.appId = app._id;
+					data.appAPIPath = app.apiPath;
+
+					data.fromDataShare = dataShare._id;
+
+					nrp.emit('activity', data);
+				});
+
+				Logging.log(`[${apiPath}][DataShare] Connected ${socket.id} to room ${dataShare.name}`);
+			} else if (token.role) {
 				socket.join(token.role);
-				Logging.log(`[${publicId}][${token.role}] Connected ${socket.id}`);
+				Logging.log(`[${apiPath}][${token.role}] Connected ${socket.id} to room ${token.role}`);
 			} else {
-				Logging.log(`[${publicId}][Global] Connected ${socket.id}`);
+				Logging.log(`[${apiPath}][Global] Connected ${socket.id}`);
 			}
 
 			socket.on('disconnect', () => {
-				Logging.logSilly(`[${publicId}] Disconnect ${socket.id}`);
+				Logging.logSilly(`[${apiPath}] Disconnect ${socket.id}`);
 			});
 
 			next();
@@ -204,17 +204,14 @@ class BootstrapSocket {
 				connection.resume();
 				return;
 			}
-			if (message['buttress:initAppTokens']) {
-				const appTokens = message['buttress:initAppTokens']; // This is sh*t
-				console.log('Clean me up');
-			}
 		});
 
+		Logging.logSilly(`Worker ready`);
 		process.send('workerInitiated');
 	}
 
-	__onActivityReceived(data) {
-		const publicId = data.appPId;
+	__onActivity(data) {
+		const apiPath = data.appAPIPath;
 
 		if (!this.emitter) {
 			throw new Error('SIO Emitter isn\'t defined');
@@ -222,60 +219,72 @@ class BootstrapSocket {
 
 		this.__namespace['stats'].emitter.emit('activity', 1);
 
-		Logging.logSilly(`[${publicId}][${data.role}][${data.verb}]  ${data.path}`);
+		Logging.logSilly(`[${apiPath}][${data.role}][${data.verb}] activity in on ${data.path}`);
 
 		// Super apps?
 		if (data.isSuper) {
-			this.__superApps.forEach((superPublicId) => {
-				this.__namespace[superPublicId].sequence['super']++;
-				this.__namespace[superPublicId].emitter.emit('db-activity', {
+			this.__superApps.forEach((superApiPath) => {
+				this.__namespace[superApiPath].sequence['super']++;
+				this.__namespace[superApiPath].emitter.emit('db-activity', {
 					data: data,
-					sequence: this.__namespace[superPublicId].sequence['super'],
+					sequence: this.__namespace[superApiPath].sequence['super'],
 				});
-				Logging.logDebug(`[${superPublicId}][super][${data.verb}] ${data.path}`);
+				Logging.logDebug(`[${superApiPath}][super][${data.verb}] ${data.path}`);
 			});
 			return;
 		}
 
 		// Disable broadcasting to public space
 		if (data.broadcast === false) {
-			Logging.logDebug(`[${publicId}][${data.role}][${data.verb}] ${data.path} - Early out as it isn't public.`);
+			Logging.logDebug(`[${apiPath}][${data.role}][${data.verb}] ${data.path} - Early out as it isn't public.`);
 			return;
 		}
 
+		if (data.appId && this._dataShareSockets[data.appId] && !data.fromDataShare) {
+			this._dataShareSockets[data.appId].forEach((sock) => sock.emit('share', data));
+		}
+
 		// Broadcast on requested channel
-		if (!this.__namespace[publicId]) {
-			throw new Error('Trying to access namespace that doesn\'t exist');
+		if (!this.__namespace[apiPath]) {
+			// Init the namespace
+			// throw new Error('Trying to access namespace that doesn\'t exist');
+			this.__namespace[apiPath] = {
+				emitter: this.emitter.of(`/${apiPath}`),
+				sequence: {
+					super: 0,
+					global: 0,
+				},
+			};
 		}
 
 		if (data.role) {
-			if (!this.__namespace[publicId].sequence[data.role]) {
-				this.__namespace[publicId].sequence[data.role] = 0;
+			if (!this.__namespace[apiPath].sequence[data.role]) {
+				this.__namespace[apiPath].sequence[data.role] = 0;
 			}
-			Logging.logDebug(`[${publicId}][${data.role}][${data.verb}] ${data.path}`);
-			this.__namespace[publicId].sequence[data.role]++;
-			this.__namespace[publicId].emitter.in(data.role).emit('db-activity', {
+			Logging.logDebug(`[${apiPath}][${data.role}][${data.verb}] ${data.path}`);
+			this.__namespace[apiPath].sequence[data.role]++;
+			this.__namespace[apiPath].emitter.in(data.role).emit('db-activity', {
 				data: data,
-				sequence: this.__namespace[publicId].sequence[data.role],
+				sequence: this.__namespace[apiPath].sequence[data.role],
 			});
 		} else {
-			Logging.logDebug(`[${publicId}][global]: [${data.verb}] ${data.path}`);
-			this.__namespace[publicId].sequence.global++;
-			this.__namespace[publicId].emitter.emit('db-activity', {
+			Logging.logDebug(`[${apiPath}][global]: [${data.verb}] ${data.path}`);
+			this.__namespace[apiPath].sequence.global++;
+			this.__namespace[apiPath].emitter.emit('db-activity', {
 				data: data,
-				sequence: this.__namespace[publicId].sequence.global,
+				sequence: this.__namespace[apiPath].sequence.global,
 			});
 		}
 	}
 
-	__spawnWorkers(appTokens) {
+	__spawnWorkers() {
 		Logging.log(`Spawning ${this.processes} Socket Workers`);
 
 		for (let x = 0; x < this.processes; x++) {
 			this.workers[x] = cluster.fork();
 			this.workers[x].on('message', (res) => {
 				if (res === 'workerInitiated') {
-					this.workers[x].send({'buttress:initAppTokens': appTokens});
+					// this.workers[x].send({'buttress:initAppTokens': appTokens});
 				}
 			});
 		}
@@ -284,37 +293,6 @@ class BootstrapSocket {
 			const worker = this.workers[this.__indexFromIP(connection.remoteAddress, this.processes)];
 			worker.send('buttress:connection', connection);
 		}).listen(Config.listenPorts.sock);
-	}
-
-	__initSocketNamespace(io, publicId, appTokens) {
-		const namespace = io.of(`/${publicId}`);
-		namespace.on('connection', (socket) => {
-			const userToken = socket.handshake.query.token;
-			const token = appTokens.tokens.find((t) => t.value === userToken);
-			if (!token) {
-				Logging.logDebug(`Invalid token, closing connection: ${socket.id}`);
-				return socket.disconnect(0);
-			}
-
-			const app = appTokens.apps.find((a) => a.publicId === publicId);
-			if (!app) {
-				Logging.logDebug(`Invalid app, closing connection: ${socket.id}`);
-				return socket.disconnect(0);
-			}
-
-			if (token.role) {
-				socket.join(token.role);
-				Logging.log(`[${publicId}][${token.role}] Connected ${socket.id}`);
-			} else {
-				Logging.log(`[${publicId}][Global] Connected ${socket.id}`);
-			}
-
-			socket.on('disconnect', () => {
-				Logging.logSilly(`[${publicId}] Disconnect ${socket.id}`);
-			});
-		});
-
-		return namespace;
 	}
 
 	__indexFromIP(ip, spread) {
@@ -328,12 +306,62 @@ class BootstrapSocket {
 		return Number(s) % spread;
 	}
 
+	async __createAppNamespace(app) {
+		if (this.__namespace[app.apiPath]) {
+			return Logging.logDebug(`Namespace already created: ${app.name}`);
+		}
+
+		const token = await Model.Token.findOne({_id: app._token});
+		if (!token) return Logging.logWarn(`No Token found for ${app.name}`);
+
+		const isSuper = token.authLevel > 2;
+
+		this.__namespace[app.apiPath] = {
+			emitter: this.emitter.of(`/${app.apiPath}`),
+			sequence: {
+				super: 0,
+				global: 0,
+			},
+		};
+
+		if (isSuper) {
+			this.__superApps.push(app.apiPath);
+		}
+
+		Logging.log(`${(isSuper) ? 'SUPER' : 'APP'} Name: ${app.name}, App ID: ${app._id}, Path: /${app.apiPath}`);
+	}
+
+	async __createDataShareConnection(dataShare) {
+		const url = `${dataShare.remoteApp.endpoint}/${dataShare.remoteApp.apiPath}`;
+		Logging.logSilly(`Attempting to connect to ${url}`);
+		if (!this._dataShareSockets[dataShare._appId]) {
+			this._dataShareSockets[dataShare._appId] = [];
+		}
+
+		const socket = sioClient(url, {
+			query: {
+				token: dataShare.remoteApp.token,
+			},
+			allowEIO3: true,
+			rejectUnauthorized: false,
+		});
+
+		this._dataShareSockets[dataShare._appId].push(socket);
+
+		socket.on('connect', () => {
+			Logging.logSilly(`Connected to ${url} with id ${socket.id}`);
+		});
+		socket.on('disconnect', () => {
+			Logging.logSilly(`Disconnected from ${url} with id ${socket.id}`);
+		});
+	}
+
 	async __nativeMongoConnect() {
 		const dbName = `${Config.app.code}-${Config.env}`;
 		const mongoUrl = `mongodb://${Config.mongoDb.url}`;
 		Logging.logDebug(`Attempting connection to ${mongoUrl}`);
 
-		const client = await MongoClient.connect(mongoUrl, Config.mongoDb.options)
+		const client = await MongoClient.connect(mongoUrl, Config.mongoDb.options);
 
 		return await client.db(dbName);
 	}

@@ -11,10 +11,15 @@
  */
 
 const ObjectId = require('mongodb').ObjectId;
+const Config = require('node-env-obj')();
+
+const NRP = require('node-redis-pubsub');
 
 const SchemaModelMongoDB = require('../type/mongoDB');
 const Schema = require('../../schema');
 const Model = require('..');
+
+const nrp = new NRP(Config.redis);
 
 /**
  * @class AppDataSharingSchemaModel
@@ -196,6 +201,8 @@ class AppDataSharingSchemaModel extends SchemaModelMongoDB {
 		if (remoteAppToken) {
 			update.$set['remoteApp.token'] = remoteAppToken;
 		}
+
+		nrp.emit('dataShare:activated', {appDataSharingId: appDataSharingId});
 
 		return new Promise((resolve) => {
 			this.collection.updateOne({

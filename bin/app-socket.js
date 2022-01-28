@@ -11,7 +11,10 @@
  *
  */
 
+const env = (process.env.ENV_FILE) ? process.env.ENV_FILE : process.env.NODE_ENV;
+
 const Config = require('node-env-obj')({
+	envFile: `.${env}.env`,
 	envPath: '../',
 	configPath: '../src',
 });

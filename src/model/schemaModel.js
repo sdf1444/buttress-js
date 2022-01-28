@@ -274,16 +274,35 @@ class SchemaModel {
 	}
 
 	/**
-	 * @throws Error
+	 * @param {object} body
+	 * @return {promise}
 	 */
-	validateUpdate() {
-		throw new Error('not yet implemented');
+	validateUpdate(body) {
+		const sharedFn = Shared.validateUpdate({}, this.schemaData);
+		return sharedFn(body);
 	}
+
 	/**
-	 * @throws Error
+	 * @param {object} body
+	 * @param {string} id
+	 * @return {promise}
 	 */
-	updateByPath() {
-		throw new Error('not yet implemented');
+	updateByPath(body, id) {
+		const sharedFn = Shared.updateByPath({}, this.schemaData, this.collection);
+
+		if (body instanceof Array === false) {
+			body = [body];
+		}
+
+		if (this.schemaData.extends && this.schemaData.extends.includes('timestamps')) {
+			body.push({
+				path: 'updatedAt',
+				value: new Date(),
+				contextPath: '^updatedAt$',
+			});
+		}
+
+		return sharedFn(body, id);
 	}
 
 	/**

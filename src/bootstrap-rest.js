@@ -174,6 +174,7 @@ class BootstrapRest {
 					type: Model.App.Constants.Type.SERVER,
 					authLevel: Model.Token.Constants.AuthLevel.SUPER,
 					permissions: [{route: '*', permission: '*'}],
+					apiPath: 'bjs',
 					domain: '',
 				});
 			})

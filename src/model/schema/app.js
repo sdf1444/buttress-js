@@ -11,15 +11,17 @@
  *
  */
 
-const fs = require('fs');
-const crypto = require('crypto');
-const SchemaModelMongoDB = require('../type/mongoDB');
 const ObjectId = require('mongodb').ObjectId;
+const Config = require('node-env-obj')();
+
+const NRP = require('node-redis-pubsub');
+
 const Model = require('../');
 const Schema = require('../../schema');
 const Logging = require('../../logging');
-const Config = require('node-env-obj')();
-const NRP = require('node-redis-pubsub');
+const SchemaModelMongoDB = require('../type/mongoDB');
+const shortId = require('../../helpers').shortId;
+
 const nrp = new NRP(Config.redis);
 
 /**
@@ -116,6 +118,7 @@ class AppSchemaModel extends SchemaModelMongoDB {
 				_token = token;
 
 				nrp.emit('app-routes:bust-cache', {});
+				nrp.emit('app-schema:updated', {appId: app.id});
 
 				return super.add(app, {_token: token._id});
 			})
@@ -198,13 +201,6 @@ class AppSchemaModel extends SchemaModelMongoDB {
 	}
 
 	/**
-	 * @return {String} - UIDk
-	 */
-	getPublicUID() {
-		return this.genPublicUID(this.name, this._id);
-	}
-
-	/**
 	 * @return {Promise} - resolves to the token
 	 */
 	getToken() {
@@ -212,26 +208,26 @@ class AppSchemaModel extends SchemaModelMongoDB {
 	}
 
 	/**
-	 * @param {String} name - name of application
-	 * @param {String} id - application id
-	 * @return {String} - UID
+	 * @param {App} entity - entity object to be deleted
+	 * @return {Promise} - returns a promise that is fulfilled when the database request is completed
 	 */
-	genPublicUID(name, id) {
-		// const hash = crypto.createHash('sha512');
-		// // Logging.log(`Create UID From: ${this.name}.${this.tokenValue}`, Logging.Constants.LogLevel.DEBUG);
-		// hash.update(`${name}.${id}`);
-		// const bytes = hash.digest();
+	async rm(entity) {
+		await Model.AppDataSharing.rmAll({_appId: entity._id});
 
-		// const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-		// const mask = 0x3d;
-		// let uid = '';
+		const appShortId = (entity) ? shortId(entity._id) : null;
 
-		// for (let byte = 0; byte < 32; byte++) {
-		// 	uid += chars[bytes[byte] & mask];
-		// }
+		// Delete Schema collections
+		if (appShortId) {
+			const appSchemaModels = Object.keys(Model.models).filter((k) => k.indexOf(appShortId) !== -1);
+			for (let i = 0; i < appSchemaModels.length; i++) {
+				if (Model[appSchemaModels[i]] && Model[appSchemaModels[i]].drop) {
+					await Model[appSchemaModels[i]].drop();
+					delete Model[appSchemaModels[i]];
+				}
+			}
+		}
 
-		// // Logging.log(`Got UID: ${uid}`, Logging.Constants.LogLevel.SILLY);
-		return id;
+		return super.rm(entity);
 	}
 }
 
