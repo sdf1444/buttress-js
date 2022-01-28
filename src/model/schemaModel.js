@@ -239,13 +239,29 @@ class SchemaModel {
 						fields[propertyPath] = true;
 
 						tasks.push(() => {
-							return collection.find(propertyQuery, fields)
-								.then((res) => {
-									// Map fetched properties into a array.
-									env[property] = res.map((i) => i[propertyMap]);
-									// Hack - Flattern any sub arrays down to the single level.
-									env[property] = [].concat(...env[property]);
+							const result = collection.find(propertyQuery, fields);
+
+							if (Helpers.isCursor(result)) {
+								const stream = result.clone().stream();
+
+								return new Promise((resolve) => {
+									stream.on('data', (res) => {
+										if (!env[property]) env[property] = [];
+										// Map fetched properties into a array.
+										env[property].push(res[propertyMap]);
+										// Hack - Flattern any sub arrays down to the single level.
+										env[property] = [].concat(...env[property]);
+									});
+									stream.once('end', () => resolve());
 								});
+							}
+
+							return result.then((res) => {
+								// Map fetched properties into a array.
+								env[property] = res.map((i) => i[propertyMap]);
+								// Hack - Flattern any sub arrays down to the single level.
+								env[property] = [].concat(...env[property]);
+							});
 						});
 					} else {
 						// Unknown operation
