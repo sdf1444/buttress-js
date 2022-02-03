@@ -6,10 +6,10 @@ module.exports.RequestError = class RequestError extends Error {
 	}
 };
 
-module.exports.RouteHasNoModel = class RequestError extends Error {
+module.exports.RouteMissingModel = class RequestError extends Error {
 	constructor(code, message) {
 		super(message);
 		this.code = code;
-		this.name = 'RouteHasNoModel';
+		this.name = 'RouteMissingModel';
 	}
 };

@@ -47,7 +47,7 @@ class GetList extends Route {
 		Logging.logSilly(`Created route: ${this.name} for ${schemaCollection}`);
 
 		if (!this.model) {
-			throw new Helpers.Errors.RouteHasNoModel(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 	}
 
@@ -92,7 +92,7 @@ class SearchList extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`SearchList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`SearchList Route missing model ${schemaCollection}`);
 		}
 	}
 
@@ -159,7 +159,7 @@ class SearchCount extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`getCount Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`getCount Route missing model ${schemaCollection}`);
 		}
 	}
 
@@ -223,7 +223,7 @@ class GetOne extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 	}
 
@@ -277,7 +277,7 @@ class GetMany extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 	}
 
@@ -325,7 +325,7 @@ class AddOne extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 	}
 
@@ -386,7 +386,7 @@ class AddMany extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 	}
 
@@ -449,7 +449,7 @@ class UpdateOne extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 
 		this._entity = null;
@@ -519,7 +519,7 @@ class UpdateMany extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 
 		this._entity = null;
@@ -626,7 +626,7 @@ class DeleteOne extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 
 		this._entity = false;
@@ -674,7 +674,7 @@ class DeleteMany extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 	}
 
@@ -736,7 +736,7 @@ class DeleteAll extends Route {
 		this.model = Model[schemaCollection];
 
 		if (!this.model) {
-			throw new Error(`GetList Route missing model ${schemaCollection}`);
+			throw new Helpers.Errors.RouteMissingModel(`GetList Route missing model ${schemaCollection}`);
 		}
 	}
 
