@@ -7,9 +7,8 @@ module.exports.RequestError = class RequestError extends Error {
 };
 
 module.exports.RouteMissingModel = class RequestError extends Error {
-	constructor(code, message) {
+	constructor(message) {
 		super(message);
-		this.code = code;
 		this.name = 'RouteMissingModel';
 	}
 };

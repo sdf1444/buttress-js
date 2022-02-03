@@ -209,8 +209,18 @@ class Routes {
 	 */
 	_initSchemaRoutes(express, app, schemaData) {
 		SchemaRoutes.forEach((Route) => {
+			let route = null;
+
 			const appShortId = Helpers.shortId(app._id);
-			const route = new Route(schemaData, appShortId);
+
+			try {
+				route = new Route(schemaData, appShortId);
+			} catch (err) {
+				if (err instanceof Helpers.Errors.RouteMissingModel) return Logging.logWarn(`${err.message} for ${app.name}`);
+
+				throw err;
+			}
+
 			let routePath = path.join(...[
 				(app.apiPath) ? app.apiPath : appShortId,
 				Config.app.apiPrefix,
