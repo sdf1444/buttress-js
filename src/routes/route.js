@@ -121,7 +121,7 @@ class Route {
 
 		if (!this._exec) {
 			Logging.logTimer('Route:exec:end-no-exec-defined', req.timer, Logging.Constants.LogLevel.DEBUG, req.id);
-			return Promise.reject(new Helpers.RequestError(500));
+			return Promise.reject(new Helpers.Errors.RequestError(500));
 		}
 
 		return this._authenticate(req, res)
@@ -432,13 +432,13 @@ class Route {
 			if (!req.token) {
 				this.log('EAUTH: INVALID TOKEN', Logging.Constants.LogLevel.ERR, req.id);
 				Logging.logTimer('_authenticate:end-invalid-token', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
-				return reject(new Helpers.RequestError(401, 'invalid_token'));
+				return reject(new Helpers.Errors.RequestError(401, 'invalid_token'));
 			}
 
 			if (req.token.authLevel < this.auth) {
 				this.log(`EAUTH: INSUFFICIENT AUTHORITY ${req.token.authLevel} < ${this.auth}`, Logging.Constants.LogLevel.ERR, req.id);
 				Logging.logTimer('_authenticate:end-insufficient-authority', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
-				return reject(new Helpers.RequestError(401, 'insufficient_authority'));
+				return reject(new Helpers.Errors.RequestError(401, 'insufficient_authority'));
 			}
 
 			req.roles = {
@@ -470,7 +470,7 @@ class Route {
 			if (authorised === false) {
 				this.log(`EAUTH: NO PERMISSION FOR ROUTE - ${this.path}`, Logging.Constants.LogLevel.ERR);
 				Logging.logTimer('_authenticate:end-no-permission-route', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
-				return reject(new Helpers.RequestError(403, 'no_permission_for_route'));
+				return reject(new Helpers.Errors.RequestError(403, 'no_permission_for_route'));
 			}
 
 			// BYPASS schema checks for app tokens
@@ -555,7 +555,7 @@ class Route {
 				if (authorised === false) {
 					this.log(`SAUTH: NO PERMISSION FOR ROUTE - ${this.path}`, Logging.Constants.LogLevel.ERR);
 					Logging.logTimer('_authenticate:end-no-permission-schema', req.timer, Logging.Constants.LogLevel.SILLY, req.id);
-					return reject(new Helpers.RequestError(403, 'no_permission_for_route'));
+					return reject(new Helpers.Errors.RequestError(403, 'no_permission_for_route'));
 				}
 
 				Logging.logTimer(`_authenticate:end-schema-role`, req.timer, Logging.Constants.LogLevel.SILLY, req.id);

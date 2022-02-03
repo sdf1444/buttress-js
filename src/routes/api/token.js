@@ -59,15 +59,15 @@ class UpdateTokenRoles extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.body) {
 				this.log('ERROR: No data has been posted', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_field`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_field`));
 			}
 			if (!req.body.token || !ObjectId.isValid(req.body.token)) {
 				this.log('ERROR: token is missing', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_token`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_token`));
 			}
 			if (!req.body.role) {
 				this.log('ERROR: role is a required field', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_role`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_role`));
 			}
 
 			// TODO: Fetch the app roles and vaildate that its a valid app role

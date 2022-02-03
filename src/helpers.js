@@ -10,18 +10,13 @@
  *
  */
 
+const Errors = require('./helpers/errors');
+
 const stream = require('stream');
 const Transform = stream.Transform;
 const {ObjectId, AbstractCursor, FindCursor, AggregationCursor, ListCollectionsCursor} = require('mongodb');
 
-class RequestError extends Error {
-	constructor(code, message) {
-		super(message);
-		this.code = code;
-		this.name = 'RequestError';
-	}
-}
-module.exports.RequestError = RequestError;
+module.exports.Errors = Errors;
 
 class Timer {
 	constructor() {

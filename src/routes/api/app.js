@@ -58,12 +58,12 @@ class GetApp extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.params.id) {
 				this.log('ERROR: Missing required field', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_fields`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_fields`));
 			}
 			Model.App.findById(req.params.id).populate('_token').then((app) => {
 				if (!app) {
 					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
+					return reject(new Helpers.Errors.RequestError(400, `invalid_id`));
 				}
 				// this.log(app._token, Route.LogLevel.DEBUG);
 				this._app = app;
@@ -95,11 +95,11 @@ class AddApp extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.body.name || !req.body.type || !req.body.authLevel) {
 				this.log('ERROR: Missing required field', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_field`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_field`));
 			}
 			if (req.body.type === Model.App.Constants.Type.Browser && !req.body.domain) {
 				this.log('ERROR: Missing required field', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_field`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_field`));
 			}
 
 			if (!req.body.permissions || req.body.permissions.length === 0) {
@@ -127,7 +127,7 @@ class AddApp extends Route {
 				req.body.permissions = JSON.parse(req.body.permissions);
 			} catch (e) {
 				this.log('ERROR: Badly formed JSON in permissions', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `invalid_json`));
+				return reject(new Helpers.Errors.RequestError(400, `invalid_json`));
 			}
 
 			resolve(true);
@@ -161,12 +161,12 @@ class DeleteApp extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.params.id) {
 				this.log('ERROR: Missing required field', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_field`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_field`));
 			}
 			Model.App.findById(req.params.id).then((app) => {
 				if (!app) {
 					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
+					return reject(new Helpers.Errors.RequestError(400, `invalid_id`));
 				}
 				this._app = app;
 				resolve(true);
@@ -199,12 +199,12 @@ class GetAppPermissionList extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.params.id) {
 				this.log('ERROR: Missing required field', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_field`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_field`));
 			}
 			Model.App.findById(req.params.id).then((app) => {
 				if (!app) {
 					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
+					return reject(new Helpers.Errors.RequestError(400, `invalid_id`));
 				}
 				this._app = app;
 				resolve(true);
@@ -243,12 +243,12 @@ class AddAppPermission extends Route {
 			Model.App.findById(req.params.id).then((app) => {
 				if (!app) {
 					this.log('ERROR: Invalid App ID', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `invalid_id`));
+					return reject(new Helpers.Errors.RequestError(400, `invalid_id`));
 				}
 
 				if (!req.body.route || !req.body.permission) {
 					this.log('ERROR: Missing required field', Route.LogLevel.ERR);
-					return reject(new Helpers.RequestError(400, `missing_field`));
+					return reject(new Helpers.Errors.RequestError(400, `missing_field`));
 				}
 
 				this._app = app;
@@ -281,11 +281,11 @@ class GetAppSchema extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.authApp) {
 				this.log('ERROR: No authenticated app', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `no_authenticated_app`));
+				return reject(new Helpers.Errors.RequestError(400, `no_authenticated_app`));
 			}
 			if (!req.authApp.__schema) {
 				this.log('ERROR: No app schema defined', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `no_authenticated_schema`));
+				return reject(new Helpers.Errors.RequestError(400, `no_authenticated_schema`));
 			}
 
 			// Filter the returned schema based token role
@@ -325,7 +325,7 @@ class UpdateAppSchema extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.authApp) {
 				this.log('ERROR: No authenticated app', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `no_authenticated_app`));
+				return reject(new Helpers.Errors.RequestError(400, `no_authenticated_app`));
 			}
 
 			resolve(true);
@@ -354,7 +354,7 @@ class UpdateAppRoles extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.authApp) {
 				this.log('ERROR: No authenticated app', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `no_authenticated_app`));
+				return reject(new Helpers.Errors.RequestError(400, `no_authenticated_app`));
 			}
 
 			resolve(true);
@@ -388,15 +388,15 @@ class AddDataSharing extends Route {
 			if (!validation.isValid) {
 				if (validation.missing.length > 0) {
 					this.log(`${this.schema.name}: Missing field: ${validation.missing[0]}`, Route.LogLevel.ERR, req.id);
-					return reject(new Helpers.RequestError(400, `${this.schema.name}: Missing field: ${validation.missing[0]}`));
+					return reject(new Helpers.Errors.RequestError(400, `${this.schema.name}: Missing field: ${validation.missing[0]}`));
 				}
 				if (validation.invalid.length > 0) {
 					this.log(`${this.schema.name}: Invalid value: ${validation.invalid[0]}`, Route.LogLevel.ERR, req.id);
-					return reject(new Helpers.RequestError(400, `${this.schema.name}: Invalid value: ${validation.invalid[0]}`));
+					return reject(new Helpers.Errors.RequestError(400, `${this.schema.name}: Invalid value: ${validation.invalid[0]}`));
 				}
 
 				this.log(`${this.schema.name}: Unhandled Error`, Route.LogLevel.ERR, req.id);
-				return reject(new Helpers.RequestError(400, `${this.schema.name}: Unhandled error.`));
+				return reject(new Helpers.Errors.RequestError(400, `${this.schema.name}: Unhandled error.`));
 			}
 
 			// If we're not super then set the appId to be the current appId
@@ -408,7 +408,7 @@ class AddDataSharing extends Route {
 				.then((res) => {
 					if (res === true) {
 						this.log(`${this.schema.name}: Duplicate entity`, Route.LogLevel.ERR, req.id);
-						return reject(new Helpers.RequestError(400, `duplicate`));
+						return reject(new Helpers.Errors.RequestError(400, `duplicate`));
 					}
 					resolve(true);
 				});
@@ -486,12 +486,12 @@ class UpdateAppDataSharingPolicy extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.authApp) {
 				this.log('ERROR: No authenticated app', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `no_authenticated_app`));
+				return reject(new Helpers.Errors.RequestError(400, `no_authenticated_app`));
 			}
 
 			if (!req.params.dataSharingId) {
 				this.log('ERROR: No Data Sharing Id', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_data_sharing_id`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_data_sharing_id`));
 			}
 
 			// Lookup
@@ -501,7 +501,7 @@ class UpdateAppDataSharingPolicy extends Route {
 				.then((res) => {
 					if (res !== true) {
 						this.log(`${this.schema.name}: unknown data sharing`, Route.LogLevel.ERR, req.id);
-						return reject(new Helpers.RequestError(400, `unknown_data_sharing`));
+						return reject(new Helpers.Errors.RequestError(400, `unknown_data_sharing`));
 					}
 
 					resolve(true);
@@ -535,17 +535,17 @@ class ActivateAppDataSharing extends Route {
 		return new Promise((resolve, reject) => {
 			if (!req.authApp) {
 				this.log('ERROR: No authenticated app', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(500, `no_authenticated_app`));
+				return reject(new Helpers.Errors.RequestError(500, `no_authenticated_app`));
 			}
 
 			if (token.type !== Model.Token.Constants.Type.DATA_SHARING) {
 				this.log('ERROR: invalid token type', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(401, `invalid_token_type`));
+				return reject(new Helpers.Errors.RequestError(401, `invalid_token_type`));
 			}
 
 			if (!req.body.token) {
 				this.log('ERROR: missing data sharing token', Route.LogLevel.ERR);
-				return reject(new Helpers.RequestError(400, `missing_data_token`));
+				return reject(new Helpers.Errors.RequestError(400, `missing_data_token`));
 			}
 
 			this.model.findOne({
@@ -554,7 +554,7 @@ class ActivateAppDataSharing extends Route {
 				.then((dataSharing) => {
 					if (!dataSharing) {
 						this.log(`ERROR: Unable to find dataSharing with token ${token._id}`, Route.LogLevel.ERR, req.id);
-						return reject(new Helpers.RequestError(500, `no_datasharing`));
+						return reject(new Helpers.Errors.RequestError(500, `no_datasharing`));
 					}
 
 					resolve(dataSharing);
