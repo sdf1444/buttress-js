@@ -22,7 +22,7 @@ const Config = require('node-env-obj')({
 const Logging = require('../src/logging');
 const Bootstrap = require('../src/bootstrap');
 
-Logging.init('socket');
+Logging.init('SOCK');
 
 Bootstrap
 	.socket()

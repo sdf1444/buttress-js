@@ -1,6 +1,6 @@
 {
 	"environment": {
-		"NODE_ENV": "development",
+		"NODE_ENV": "production",
 		"BUTTRESS_APP_TITLE": "ButtressJS",
 		"BUTTRESS_APP_CODE": "buttressjs",
 		"BUTTRESS_APP_PROTOCOL": "http",

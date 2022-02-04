@@ -60,10 +60,10 @@ module.exports.init = (logApp) => {
 			winston.format.errors({stack: true}),
 			winston.format.printf((info) => {
 				if (info.stack) {
-					return `${info.timestamp} [${_logProcess}] ${info.level}: ${info.message}\n${info.stack}`;
+					return `${info.timestamp} [${logApp}][${_logProcess}] ${info.level}: ${info.message}\n${info.stack}`;
 				}
 
-				return `${info.timestamp} [${_logProcess}] ${info.level}: ${info.message}`;
+				return `${info.timestamp} [${logApp}][${_logProcess}] ${info.level}: ${info.message}`;
 			}),
 		),
 	}));
