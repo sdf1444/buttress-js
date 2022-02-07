@@ -17,6 +17,7 @@ const Sugar = require('sugar');
 const Schema = require('../schema');
 const shortId = require('../helpers').shortId;
 
+const SchemaModelRemote = require('./type/remote');
 const SchemaModelButtress = require('./type/buttress');
 const SchemaModelMongoDB = require('./type/mongoDB');
 
@@ -128,7 +129,11 @@ class Model {
 					return;
 				}
 
-				this.models[name] = new SchemaModelButtress(schemaData, app, dataSharing);
+				this.models[name] = new SchemaModelRemote(
+					schemaData, app,
+					new SchemaModelMongoDB(this.mongoDb, schemaData, app),
+					new SchemaModelButtress(schemaData, app, dataSharing),
+				);
 
 				this.__defineGetter__(name, () => this.models[name]);
 				return this.models[name];
