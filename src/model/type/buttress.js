@@ -36,6 +36,9 @@ class SchemaModelButtress extends SchemaModel {
 		// Hack - Give a little time for another instance to get up to speed
 		// before trying to init
 
+		this.init = false;
+		this.initPendingResolve = [];
+
 		// TOOD: Handle the case we're another instance isn't available
 		setTimeout(() => {
 			this.buttress.init({
@@ -46,8 +49,17 @@ class SchemaModelButtress extends SchemaModel {
 			})
 				.then(() => {
 					this.collection = this.buttress.getCollection(collection);
+					this.init = true;
+					this.initPendingResolve.forEach((r) => r());
 				});
 		}, 500);
+	}
+
+	resolveAfterInit() {
+		if (this.init) return Promise.resolve();
+		return new Promise((resolve) => {
+			this.initPendingResolve.push(resolve);
+		});
 	}
 
 	/**
@@ -55,7 +67,8 @@ class SchemaModelButtress extends SchemaModel {
 	 * @return {Promise}
 	 */
 	add(body) {
-		return this.collection.save(body);
+		return this.resolveAfterInit()
+			.then(() => this.collection.save(body));
 	}
 
 	/**
@@ -64,7 +77,8 @@ class SchemaModelButtress extends SchemaModel {
 	 * @return {Promise}
 	 */
 	update(details, id) {
-		return this.collection.update(id, details);
+		return this.resolveAfterInit()
+			.then(() => this.collection.update(id, details));
 	}
 
 	/**
@@ -72,7 +86,8 @@ class SchemaModelButtress extends SchemaModel {
 	 * @return {Boolean}
 	 */
 	exists(id) {
-		return this.collection.get(id)
+		return this.resolveAfterInit()
+			.then(() => this.collection.get(id))
 			.then((res) => (res) ? true : false);
 	}
 
@@ -89,7 +104,8 @@ class SchemaModelButtress extends SchemaModel {
 	 * @return {Promise}
 	 */
 	rm(entity) {
-		return this.collection.remove(entity._id);
+		return this.resolveAfterInit()
+			.then(() => this.collection.remove(entity._id));
 	}
 
 	/**
@@ -97,7 +113,8 @@ class SchemaModelButtress extends SchemaModel {
 	 * @return {Promise}
 	 */
 	rmBulk(ids) {
-		return this.collection.bulkRemove(ids);
+		return this.resolveAfterInit()
+			.then(() => this.collection.bulkRemove(ids));
 	}
 
 	/**
@@ -105,7 +122,8 @@ class SchemaModelButtress extends SchemaModel {
 	 * @return {Promise}
 	 */
 	rmAll(query) {
-		return this.collection.removeAll(query);
+		return this.resolveAfterInit()
+			.then(() => this.collection.removeAll(query));
 	}
 
 	/**
@@ -113,7 +131,8 @@ class SchemaModelButtress extends SchemaModel {
 	 * @return {Promise}
 	 */
 	findById(id) {
-		return this.collection.get(id);
+		return this.resolveAfterInit()
+			.then(() => this.collection.get(id));
 	}
 
 	/**
@@ -130,14 +149,16 @@ class SchemaModelButtress extends SchemaModel {
 		// Logging.logSilly(`find: ${this.collectionName} ${query}`);
 
 		// Stream this?
-		return this.collection.search(query, limit, skip, sort, {project});
+		return this.resolveAfterInit()
+			.then(() => this.collection.search(query, limit, skip, sort, {project}));
 	}
 
 	/**
 	 * @return {Promise}
 	 */
 	findAll() {
-		return this.collection.getAll();
+		return this.resolveAfterInit()
+			.then(() => this.collection.getAll());
 	}
 
 	/**
@@ -145,7 +166,8 @@ class SchemaModelButtress extends SchemaModel {
 	 * @return {Promise}
 	 */
 	findAllById(ids) {
-		return this.collection.bulkGet(ids);
+		return this.resolveAfterInit()
+			.then(() => this.collection.bulkGet(ids));
 	}
 
 	/**
@@ -153,7 +175,8 @@ class SchemaModelButtress extends SchemaModel {
 	 * @return {Promise}
 	 */
 	count(query) {
-		return this.collection.count(query);
+		return this.resolveAfterInit()
+			.then(() => this.collection.count(query));
 	}
 }
 
