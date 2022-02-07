@@ -276,7 +276,7 @@ class Routes {
 			.then((token) => {
 				return new Promise((resolve, reject) => {
 					if (token === null) {
-						Logging.logTimer(`_authenticateToken:end-missing-token`, req.timer, Logging.Constants.LogLevel.SILLY, req.id);
+						Logging.logTimer(`_authenticateToken:end-cant-find-token`, req.timer, Logging.Constants.LogLevel.SILLY, req.id);
 						reject(new Helpers.Errors.RequestError(401, 'invalid_token'));
 						return;
 					}
