@@ -193,7 +193,14 @@ class Route {
 			return properties;
 		}, {});
 
+		let stream = result;
 		if (isCursor) {
+			stream = result.clone().stream();
+		}
+
+		const isReadStream = stream instanceof Stream.Readable;
+
+		if (isReadStream) {
 			let chunkCount = 0;
 			const stringifyStream = new Helpers.JSONStringifyStream({}, (chunk) => {
 				chunkCount++;
@@ -206,7 +213,6 @@ class Route {
 
 			Logging.logTimer(`_respond:start-stream`, req.timer, Logging.Constants.LogLevel.DEBUG, req.id);
 
-			const stream = result.clone().stream();
 			stream.once('end', () => {
 				// Logging.logTimerException(`PERF: STREAM DONE: ${this.path}`, req.timer, 0.05, req.id);
 				Logging.logTimer(`_respond:end-stream`, req.timer, Logging.Constants.LogLevel.DEBUG, req.id);
