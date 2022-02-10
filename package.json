@@ -12,6 +12,7 @@
   "main": "deploy/app.js",
   "scripts": {
     "test": "mocha",
+    "lint": "eslint 'src/**/*.js'",
     "start": "bin/buttress.sh",
     "docker:build": "docker build -t buttress .",
     "docker:run": "docker-compose -f .docker/docker-compose.yml up"
@@ -42,7 +43,8 @@
   },
   "devDependencies": {
     "eslint": "^8.3.0",
-    "eslint-config-google": "^0.14.0"
+    "eslint-config-google": "^0.14.0",
+    "mocha": "^9.2.0"
   },
   "mocha": {
     "require": "test/hooks.js"
