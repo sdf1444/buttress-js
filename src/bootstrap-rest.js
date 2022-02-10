@@ -36,11 +36,14 @@ class BootstrapRest {
 	constructor() {
 		Logging.setLogLevel(Logging.Constants.LogLevel.INFO);
 
-		this.processes = os.cpus().length;
-		this.processes = 1;
+		const ConfigWorkerCount = parseInt(Config.app.workers);
+		this.workerProcesses = (isNaN(ConfigWorkerCount)) ? os.cpus().length : ConfigWorkerCount;
+
 		this.workers = [];
 
 		this.routes = null;
+
+		this.id = (cluster.isMaster) ? 'MASTER' : cluster.worker.id;
 
 		let restInitTask = null;
 		if (cluster.isMaster) {
@@ -54,7 +57,7 @@ class BootstrapRest {
 			.then(() => cluster.isMaster);
 	}
 
-	__initMaster(db) {
+	async __initMaster(db) {
 		const isPrimary = Config.rest.app === 'primary';
 		let initMasterTask = Promise.resolve();
 
@@ -85,13 +88,19 @@ class BootstrapRest {
 			}));
 		});
 
-		return initMasterTask
-			.then(() => this.__spawnWorkers());
+		await initMasterTask;
+
+		if (this.workerProcesses === 0) {
+			Logging.logWarn(`Running in SINGLE Instance mode, BUTTRESS_APP_WORKERS has been set to 0`);
+			await this.__initWorker(db);
+		} else {
+			await this.__spawnWorkers();
+		}
 	}
 
 	__initWorker(db) {
 		const app = express();
-		app.use(morgan(`:date[iso] [${cluster.worker.id}] [:id] :method :status :url :res[content-length] - :response-time ms - :remote-addr`));
+		app.use(morgan(`:date[iso] [${this.id}] [:id] :method :status :url :res[content-length] - :response-time ms - :remote-addr`));
 		app.enable('trust proxy', 1);
 		app.use(bodyParser.json({limit: '20mb'}));
 		app.use(bodyParser.urlencoded({extended: true}));
@@ -144,13 +153,13 @@ class BootstrapRest {
 	}
 
 	__spawnWorkers() {
-		Logging.logVerbose(`Spawning ${this.processes} REST Workers`);
+		Logging.logVerbose(`Spawning ${this.workerProcesses} REST Workers`);
 
 		const __spawn = (idx) => {
 			this.workers[idx] = cluster.fork();
 		};
 
-		for (let x = 0; x < this.processes; x++) {
+		for (let x = 0; x < this.workerProcesses; x++) {
 			__spawn(x);
 		}
 	}

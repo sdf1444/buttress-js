@@ -5,6 +5,7 @@
 		"BUTTRESS_APP_CODE": "buttressjs",
 		"BUTTRESS_APP_PROTOCOL": "http",
 		"BUTTRESS_APP_PATH": "",
+		"BUTTRESS_APP_WORKERS": "FALSE",
 		"BUTTRESS_HOST_URL": "",
 		"BUTTRESS_REST_LISTEN_PORT": "6000",
 		"BUTTRESS_SOCK_LISTEN_PORT": "6010",
@@ -26,7 +27,8 @@
 			"version": "2.4.0",
 			"protocol": "http",
 			"host": "%BUTTRESS_HOST_URL%",
-			"apiPrefix": "/api/v1"
+			"apiPrefix": "/api/v1",
+			"workers": "%BUTTRESS_APP_WORKERS%"
 		},
 		"logging": {
 			"level": "%BUTTRESS_LOGGING_LEVEL%",

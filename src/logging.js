@@ -45,6 +45,9 @@ const setLogApp = (app) => {
 };
 module.exports.setLogApp = setLogApp;
 
+let _captureOutput = false;
+let _captureOutputBuffer = [];
+
 /**
  * @param {String} logApp - Log applcation label (rest / socket)
  */
@@ -125,6 +128,24 @@ module.exports.init = (logApp) => {
 	// });
 };
 
+module.exports.captureOutput = (mode = false) => {
+	if (mode) {
+		// Setup structure
+		module.exports.clean();
+	}
+
+	_captureOutput = mode;
+};
+module.exports.flush = () => {
+	console.log('-- Log captured during test:');
+	_captureOutputBuffer.forEach((line) => {
+		winston.log(line);
+	});
+};
+module.exports.clean = () => {
+	_captureOutputBuffer = [];
+};
+
 /**
  *
  * @param {string} log - log entry
@@ -133,10 +154,17 @@ module.exports.init = (logApp) => {
  * @private
  */
 function _log(log, level, id) {
-	winston.log({
+	const line = {
 		level: level,
 		message: (id) ? `[${id}] ${log}` : log,
-	});
+	};
+
+	if (_captureOutput) {
+		_captureOutputBuffer.push(line);
+		return;
+	}
+
+	winston.log(line);
 }
 
 /**
