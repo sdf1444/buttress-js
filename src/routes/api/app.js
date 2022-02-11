@@ -328,6 +328,16 @@ class UpdateAppSchema extends Route {
 				return reject(new Helpers.Errors.RequestError(400, `no_authenticated_app`));
 			}
 
+			if (!req.body) {
+				this.log('ERROR: Missing body', Route.LogLevel.ERR);
+				return reject(new Helpers.Errors.RequestError(400, `no_body`));
+			}
+
+			if (!Array.isArray(req.body)) {
+				this.log('ERROR: Expected body to be an array', Route.LogLevel.ERR);
+				return reject(new Helpers.Errors.RequestError(400, `invalid_body_type`));
+			}
+
 			resolve(true);
 		});
 	}

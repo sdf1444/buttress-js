@@ -104,11 +104,7 @@ class SchemaModelRemote extends SchemaModel {
 	 * @return {Promise} - resolves to an array of docs
 	 */
 	find(query, excludes = {}, stream = false, limit = 0, skip = 0, sort, project = null) {
-		const res = this.remote.find(query, excludes, stream, limit, skip, sort, project);
-
-		console.log('DEBUG', typeof res);
-
-		return res;
+		return this.remote.find(query, excludes, stream, limit, skip, sort, project);
 	}
 
 	/**
