@@ -417,6 +417,13 @@ const __populateObject = (schema, values) => {
 		let propVal = values.find((v) => v.path === property);
 		const config = schema[property];
 
+		const path = property.split('.');
+		const root = path.shift();
+		if (path.length > 0) {
+			const isSubPropOfArray = schemaFlat[root] && schemaFlat[root].__type === 'array';
+			if (isSubPropOfArray) continue;
+		}
+
 		if (propVal === undefined) {
 			propVal = {
 				path: property,
@@ -427,15 +434,10 @@ const __populateObject = (schema, values) => {
 		if (propVal === undefined) continue;
 		__validateProp(propVal, config);
 
-		const path = propVal.path.split('.');
-		const root = path.shift();
 		let value = propVal.value;
 		if (config.__type === 'array' && config.__schema) {
 			value = value.map((v) => __populateObject(config.__schema, __getFlattenedBody(v)));
 		} else if (root && path.length > 0) {
-			const isSubPropOfArray = schema[root] && schema[root].__type === 'array';
-			if (isSubPropOfArray) continue;
-
 			if (!objects[root]) {
 				objects[root] = {};
 			}
