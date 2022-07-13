@@ -241,6 +241,11 @@ const __validate = (schema, values, parentProperty) => {
 		let propVal = values.find((v) => v.path === property);
 		const config = schema[property];
 
+		const path = property.split('.');
+		const root = path.shift();
+		const isSubPropOfArray = schema[root] && schema[root].__type === 'array';
+		if (isSubPropOfArray && path.length > 0) continue;
+
 		if (propVal === undefined) {
 			if (config.__required) {
 				res.isValid = false;
@@ -419,10 +424,8 @@ const __populateObject = (schema, values) => {
 
 		const path = property.split('.');
 		const root = path.shift();
-		if (path.length > 0) {
-			const isSubPropOfArray = schemaFlat[root] && schemaFlat[root].__type === 'array';
-			if (isSubPropOfArray) continue;
-		}
+		const isSubPropOfArray = schema[root] && schema[root].__type === 'array';
+		if (isSubPropOfArray && path.length > 0) continue;
 
 		if (propVal === undefined) {
 			propVal = {
