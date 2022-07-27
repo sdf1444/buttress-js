@@ -242,9 +242,17 @@ const __validate = (schema, values, parentProperty) => {
 		const config = schema[property];
 
 		const path = property.split('.');
-		const root = path.shift();
-		const isSubPropOfArray = schema[root] && schema[root].__type === 'array';
-		if (isSubPropOfArray && path.length > 0) continue;
+		let isSubPropOfArray = false;
+		if (path.length > 1) {
+			path.reduce((prev, next, idx, arr) => {
+				const np = (idx !== 0) ? `${prev}.${next}` : next;
+				if (idx !== arr.length -1 && schema[np] && schema[np].__type === 'array') {
+					isSubPropOfArray = true;
+				}
+				return np;
+			}, '');
+		}
+		if (isSubPropOfArray) continue;
 
 		if (propVal === undefined) {
 			if (config.__required) {
@@ -423,9 +431,19 @@ const __populateObject = (schema, values) => {
 		const config = schema[property];
 
 		const path = property.split('.');
+		let isSubPropOfArray = false;
+		if (path.length > 1) {
+			path.reduce((prev, next, idx, arr) => {
+				const np = (idx !== 0) ? `${prev}.${next}` : next;
+				if (idx !== arr.length -1 && schema[np] && schema[np].__type === 'array') {
+					isSubPropOfArray = true;
+				}
+				return np;
+			}, '');
+		}
+		if (isSubPropOfArray) continue;
+
 		const root = path.shift();
-		const isSubPropOfArray = schema[root] && schema[root].__type === 'array';
-		if (isSubPropOfArray && path.length > 0) continue;
 
 		if (propVal === undefined) {
 			propVal = {
