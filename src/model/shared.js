@@ -238,6 +238,19 @@ const __validate = (schema, values, parentProperty) => {
 		let propVal = values.find((v) => v.path === property);
 		const config = schema[property];
 
+		const path = property.split('.');
+		let isSubPropOfArray = false;
+		if (path.length > 1) {
+			path.reduce((prev, next, idx, arr) => {
+				const np = (idx !== 0) ? `${prev}.${next}` : next;
+				if (idx !== arr.length -1 && schema[np] && schema[np].__type === 'array') {
+					isSubPropOfArray = true;
+				}
+				return np;
+			}, '');
+		}
+		if (isSubPropOfArray) continue;
+
 		if (propVal === undefined) {
 			if (config.__required) {
 				res.isValid = false;
@@ -419,6 +432,21 @@ const __populateObject = (schema, values) => {
 		let propVal = values.find((v) => v.path === property);
 		const config = schema[property];
 
+		const path = property.split('.');
+		let isSubPropOfArray = false;
+		if (path.length > 1) {
+			path.reduce((prev, next, idx, arr) => {
+				const np = (idx !== 0) ? `${prev}.${next}` : next;
+				if (idx !== arr.length -1 && schema[np] && schema[np].__type === 'array') {
+					isSubPropOfArray = true;
+				}
+				return np;
+			}, '');
+		}
+		if (isSubPropOfArray) continue;
+
+		const root = path.shift();
+
 		if (propVal === undefined) {
 			propVal = {
 				path: property,
@@ -429,14 +457,10 @@ const __populateObject = (schema, values) => {
 		if (propVal === undefined) continue;
 		__validateProp(propVal, config);
 
-		const path = propVal.path.split('.');
-		const root = path.shift();
 		let value = propVal.value;
 		if (config.__type === 'array' && config.__schema) {
 			value = value.map((v) => __populateObject(config.__schema, __getFlattenedBody(v)));
-		}
-
-		if (path.length > 0) {
+		} else if (root && path.length > 0) {
 			if (!objects[root]) {
 				objects[root] = {};
 			}
